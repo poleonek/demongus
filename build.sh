@@ -1,5 +1,8 @@
 #!/bin/bash
 
+cd SDL && cmake -S . -B build && cmake --build build
+cd ..
+
 set -e
 
 shopt -s expand_aliases
@@ -32,3 +35,7 @@ esac
 cd build
 
 clang ../main.c -o main -lSDL3
+
+echo "Created $BUILD_TYPE build"
+
+exit 0
