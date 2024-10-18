@@ -69,7 +69,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     return SDL_APP_CONTINUE;
 }
 
-void SDL_AppQuit(void* appstate)
+void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
     const char* error = SDL_GetError();
     if (error[0])
