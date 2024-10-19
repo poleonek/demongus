@@ -1,14 +1,17 @@
 #include <SDL3/SDL_stdinc.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <assert.h>
 
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-#define WINDOW_HEIGHT 480
-#define WINDOW_WIDTH 640
+#define WINDOW_HEIGHT 900
+#define WINDOW_WIDTH 1600
 
+#include "de_base.h"
+#include "de_math.h"
 #include "de_main.h"
 #include "de_main.c"
 

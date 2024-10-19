@@ -1,7 +1,16 @@
+typedef enum {
+    ObjectFlag_Movement  = (1 << 0),
+    ObjectFlag_Draw      = (1 << 1),
+} ObjectFlags;
+
 typedef struct
 {
-    float x,y; // @todo(mg) add vectors?
-} Entity;
+    Uint32 flags;
+    float x, y; // @todo(mg) add vectors?
+    float dx, dy;
+    float dim_x, dim_y;
+    ColorF color;
+} Object;
 
 typedef struct
 {
@@ -18,4 +27,8 @@ typedef struct
     // time
     Uint64 frame_time;
     float dt;
+
+    // Entities
+    Object object_pool[4096];
+    Uint32 object_count;
 } AppState;
