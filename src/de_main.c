@@ -29,6 +29,9 @@ static void Game_Iterate(AppState *app)
         Object *player = app->object_pool + app->player_id;
         player->p.x += dir.x * player_speed;
         player->p.y += dir.y * player_speed;
+
+        // camera follows the player
+        app->camera_p = player->p;
     }
 
     // display objects
@@ -38,9 +41,7 @@ static void Game_Iterate(AppState *app)
             float wh = Max(app->width, app->height); // pick bigger window dimension
             camera_scale = wh / app->camera_range;
         }
-
-        float camera_transform_x = app->width*0.5f - app->camera_p.x;
-        float camera_transform_y = app->height*0.5f - app->camera_p.y;
+        V2 window_transform = (V2){app->width*0.5f, app->height*0.5f};
 
         ForU32(i, app->object_count) {
             Object *obj = app->object_pool + i;
@@ -55,13 +56,16 @@ static void Game_Iterate(AppState *app)
 
             // apply camera
             {
+                rect.x -= app->camera_p.x;
+                rect.y -= app->camera_p.y;
+
                 rect.x *= camera_scale;
                 rect.y *= camera_scale;
                 rect.w *= camera_scale;
                 rect.h *= camera_scale;
 
-                rect.x += camera_transform_x;
-                rect.y += camera_transform_y;
+                rect.x += window_transform.x;
+                rect.y += window_transform.y;
             }
 
             SDL_SetRenderDrawColorFloat(app->renderer, obj->color.r, obj->color.g, obj->color.b, obj->color.a);
