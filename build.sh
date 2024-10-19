@@ -1,48 +1,69 @@
 #!/bin/bash
+# build script based on: https://github.com/EpicGamesExt/raddebugger/blob/master/build.sh
+set -eu
+cd "$(dirname "$0")"
+
+# --- Unpack Arguments --------------------------------------------------------
+for arg in "$@"; do declare $arg='1'; done
+if [ ! -v gcc ];     then clang=1; fi
+if [ ! -v release ]; then debug=1; fi
+if [ -v debug ];     then echo "[debug mode]"; fi
+if [ -v release ];   then echo "[release mode]"; fi
+if [ -v clang ];     then compiler="${CC:-clang}"; echo "[clang compile]"; fi
+if [ -v gcc ];       then compiler="${CC:-gcc}"; echo "[gcc compile]"; fi
+
+# --- Unpack Command Line Build Arguments -------------------------------------
+auto_compile_flags=''
+
+# --- Compile/Link Line Definitions -------------------------------------------
+clang_common='-I../src/ -I../SDL/include/ -g -fdiagnostics-absolute-paths -Wall -Wno-unused-variable'
+clang_debug="$compiler -O0 -DBUILD_DEBUG=1 ${clang_common} ${auto_compile_flags}"
+clang_release="$compiler -O2 -DBUILD_DEBUG=0 ${clang_common} ${auto_compile_flags}"
+clang_link="../SDL/build/libSDL3.a -lm"
+clang_out="-o"
+gcc_common='-I../src/ -I../SDL/include/ -g -Wall -Wno-unused-variable'
+gcc_debug="$compiler -O0 -DBUILD_DEBUG=1 ${gcc_common} ${auto_compile_flags}"
+gcc_release="$compiler -O2 -DBUILD_DEBUG=0 ${gcc_common} ${auto_compile_flags}"
+gcc_link="../SDL/build/libSDL3.a -lm"
+gcc_out="-o"
+
+# --- Choose Compile/Link Lines -----------------------------------------------
+if [ -v gcc ];     then compile_debug="$gcc_debug"; fi
+if [ -v gcc ];     then compile_release="$gcc_release"; fi
+if [ -v gcc ];     then compile_link="$gcc_link"; fi
+if [ -v gcc ];     then out="$gcc_out"; fi
+if [ -v clang ];   then compile_debug="$clang_debug"; fi
+if [ -v clang ];   then compile_release="$clang_release"; fi
+if [ -v clang ];   then compile_link="$clang_link"; fi
+if [ -v clang ];   then out="$clang_out"; fi
+if [ -v debug ];   then compile="$compile_debug"; fi
+if [ -v release ]; then compile="$compile_release"; fi
+
+# --- Prep Directories --------------------------------------------------------
 mkdir -p build
 
-# TODO: a way to skip this SDL building code for MUCH faster builds
-if [ -d "SDL" ]; then
-    cd SDL
-    cmake -S . -B build -DSDL_SHARED=OFF -DSDL_STATIC=ON && cmake --build build
-    cd ..
-else
-    echo "SDL directory not found!"
+# --- Build Everything (@build_targets) ---------------------------------------
+if [ -v sdl ]; then
+    if [ -d "SDL" ]; then
+        # SDL build docs: https://github.com/libsdl-org/SDL/blob/main/docs/README-cmake.md
+        # @todo(mg): handle release flag for SDL
+        # @todo(mg): pass gcc/clang flag to SDL (is that even possible?)
+        cd SDL
+        didbuild=1
+        cmake -S . -B build -DSDL_SHARED=OFF -DSDL_STATIC=ON && cmake --build build
+        cd ..
+    else
+        echo "SDL directory not found! Make sure to initialize git submodules."
+    fi
 fi
-
-set -e
-
-shopt -s expand_aliases
-
-case $1 in
-    -b|--build-type)
-        BUILD_TYPE=$2
-        ;;
-esac
-
-if [[ -z $BUILD_TYPE ]]; then
-    BUILD_TYPE="RELEASE"
-fi
-
-case $BUILD_TYPE in
-    DEBUG)
-        alias clang="clang -O0 -g"
-        ;;
-    RELEASE)
-        alias clang="clang"
-        ;;
-    *)
-        echo "Accepted args for -b|--build-type are only RELEASE or DEBUG."
-        echo "$BUILD_TYPE was provided."
-        exit -1
-        ;;
-esac
-
 
 cd build
+if [ -v game ];    then didbuild=1 && $compile ../src/main.c     $compile_link $out raddbg; fi
+cd ..
 
-clang ../main.c -I ../SDL/include -o demongus ../SDL/build/libSDL3.a -lm
-
-echo "Created $BUILD_TYPE build"
-
-exit 0
+# --- Warn On No Builds -------------------------------------------------------
+if [ ! -v didbuild ]
+then
+  echo "[WARNING] no valid build target specified; must use build target names as arguments to this script, like \`./build.sh sdl game\` or \`./build.sh game\`."
+  exit 1
+fi
