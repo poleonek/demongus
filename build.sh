@@ -1,4 +1,14 @@
 #!/bin/bash
+mkdir -p build
+
+# TODO: a way to skip this SDL building code for MUCH faster builds
+if [ -d "SDL" ]; then
+    cd SDL
+    cmake -S . -B build -DSDL_SHARED=OFF -DSDL_STATIC=ON && cmake --build build
+    cd ..
+else
+    echo "SDL directory not found!"
+fi
 
 set -e
 
@@ -31,4 +41,8 @@ esac
 
 cd build
 
-clang ../main.c -o main -lSDL3
+clang ../main.c -I ../SDL/include -o demongus ../SDL/build/libSDL3.a -lm
+
+echo "Created $BUILD_TYPE build"
+
+exit 0
