@@ -1,3 +1,9 @@
+//
+// @info(mg) The idea is that this file should contain game logic
+//           and it should be isolated from platform specific
+//           stuff when it's reasonable.
+//
+
 static void Game_Iterate(AppState *app)
 {
     {
@@ -9,13 +15,14 @@ static void Game_Iterate(AppState *app)
 
     {
         static float r = 0;
-        r += app->dt * 30.f;
+        r += app->dt * 90.f;
         if (r > 255) r = 0;
         /* set the color to white */
-        SDL_SetRenderDrawColor(app->renderer, 255, 255, 255, 255);
+        SDL_SetRenderDrawColor(app->renderer, (int)r, 255 - (int)r, 255, 255);
 
-        //SDL_RenderFillRect(app->renderer, &mouseposrect);
-
+        float dim = 20;
+        SDL_FRect rect = {app->mouse.x - 0.5f*dim, app->mouse.y - 0.5f*dim, dim, dim};
+        SDL_RenderFillRect(app->renderer, &rect);
     }
 }
 

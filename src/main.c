@@ -15,6 +15,12 @@
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
     AppState* app = (AppState*)appstate;
+
+    // input
+    {
+        SDL_MouseButtonFlags mouse_buttons = SDL_GetMouseState(&app->mouse.x, &app->mouse.y);
+    }
+
     SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
     SDL_RenderClear(app->renderer);
     Game_Iterate(app);
