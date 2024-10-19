@@ -1,0 +1,99 @@
+@echo off
+rem build script based on: https://github.com/EpicGamesExt/raddebugger/blob/master/build.bat
+setlocal
+cd /D "%~dp0"
+
+:: --- Unpack Arguments -------------------------------------------------------
+for %%a in (%*) do set "%%a=1"
+if not "%msvc%"=="1" if not "%clang%"=="1" set msvc=1
+if not "%release%"=="1" set debug=1
+if "%debug%"=="1"   set release=0 && echo [debug mode]
+if "%release%"=="1" set debug=0 && echo [release mode]
+if "%msvc%"=="1"    set clang=0 && echo [msvc compile]
+if "%clang%"=="1"   set msvc=0 && echo [clang compile]
+
+:: --- Unpack Command Line Build Arguments ------------------------------------
+set auto_compile_flags=
+if "%asan%"=="1"      set auto_compile_flags=%auto_compile_flags% -fsanitize=address && echo [asan enabled]
+
+:: --- Compile/Link Line Definitions ------------------------------------------
+set cl_common=     /I..\src\ /I..\SDL\include\ /nologo /FC /Z7 /MD
+set clang_common=  -I..\src\ -I..\SDL\include\ -fdiagnostics-absolute-paths -Wall -Wno-unused-variable
+set cl_debug=      call cl /Od /Ob1 /DBUILD_DEBUG=1 %cl_common% %auto_compile_flags%
+set cl_release=    call cl /O2 /DBUILD_DEBUG=0 %cl_common% %auto_compile_flags%
+set clang_debug=   call clang -g -O0 -DBUILD_DEBUG=1 %clang_common% %auto_compile_flags%
+set clang_release= call clang -g -O2 -DBUILD_DEBUG=0 %clang_common% %auto_compile_flags%
+set sdl_win_libs=  User32.lib Advapi32.lib Shell32.lib Gdi32.lib Version.lib OleAut32.lib Imm32.lib Ole32.lib Cfgmgr32.lib Setupapi.lib Winmm.lib
+set common_link=   ..\SDL\build\win\Debug\SDL3-static.lib %sdl_win_libs%
+set cl_link=       /link /SUBSYSTEM:WINDOWS /MANIFEST:EMBED /INCREMENTAL:NO /pdbaltpath:%%%%_PDB%%%% %common_link%
+set clang_link=    -fuse-ld=lld -Xlinker /SUBSYSTEM:WINDOWS -Xlinker /MANIFEST:EMBED -Xlinker /pdbaltpath:%%%%_PDB%%%% %common_link%
+set cl_out=        /out:
+set clang_out=     -o
+
+:: --- Per-Build Settings -----------------------------------------------------
+set link_dll=-DLL
+if "%msvc%"=="1"    set only_compile=/c
+if "%clang%"=="1"   set only_compile=-c
+if "%msvc%"=="1"    set EHsc=/EHsc
+if "%clang%"=="1"   set EHsc=
+if "%msvc%"=="1"    set no_aslr=/DYNAMICBASE:NO
+if "%clang%"=="1"   set no_aslr=-Wl,/DYNAMICBASE:NO
+if "%msvc%"=="1"    set rc=call rc
+if "%clang%"=="1"   set rc=call llvm-rc
+
+:: --- Choose Compile/Link Lines ----------------------------------------------
+if "%msvc%"=="1"      set compile_debug=%cl_debug%
+if "%msvc%"=="1"      set compile_release=%cl_release%
+if "%msvc%"=="1"      set compile_link=%cl_link%
+if "%msvc%"=="1"      set out=%cl_out%
+if "%clang%"=="1"     set compile_debug=%clang_debug%
+if "%clang%"=="1"     set compile_release=%clang_release%
+if "%clang%"=="1"     set compile_link=%clang_link%
+if "%clang%"=="1"     set out=%clang_out%
+if "%debug%"=="1"     set compile=%compile_debug%
+if "%release%"=="1"   set compile=%compile_release%
+
+:: --- Prep Directories -------------------------------------------------------
+if not exist build mkdir build
+
+:: --- Get Current Git Commit Id ----------------------------------------------
+for /f %%i in ('call git describe --always --dirty') do set compile=%compile% -DBUILD_GIT_HASH=\"%%i\"
+
+:: --- Build Everything (@build_targets) --------------------------------------
+if "%sdl%"=="1" (
+    if exist SDL (
+        rem SDL build docs: https://github.com/libsdl-org/SDL/blob/main/docs/README-cmake.md
+        rem @todo(mg): handle release flag for SDL
+        rem @todo(mg): pass gcc/clang flag to SDL (is that even possible?)
+        rem @todo(mg): I hate cmake/microsoft. This doesn't work!
+        rem            Seems like this cmake doesn't work from .bat file
+        rem            It only works for me when I paste these commands into
+        rem            pwsh.exe with msvc developer tools.
+        rem            Would be nice to fix this :)
+        pushd SDL
+        (cmake -S . -B build\win -DSDL_SHARED=OFF -DSDL_STATIC=ON && cmake --build build\win) || exit /b 1
+        popd
+    ) else (
+        echo "SDL directory not found! Make sure to initialize git submodules."
+    )
+    echo "todo - build sdl"
+)
+
+pushd build
+if "%game%"=="1"    set didbuild=1 && %compile% ..\src\main.c    %compile_link% %out%demongus.exe || exit /b 1
+popd
+
+:: --- Unset ------------------------------------------------------------------
+for %%a in (%*) do set "%%a=0"
+set compile=
+set compile_link=
+set out=
+set msvc=
+set debug=
+set release=
+
+:: --- Warn On No Builds ------------------------------------------------------
+if "%didbuild%"=="" (
+  echo [WARNING] no valid build target specified; must use build target names as arguments to this script, like `build raddbg` or `build rdi_from_pdb`.
+  exit /b 1
+)

@@ -17,11 +17,26 @@ git submodule update --init --recursive
 ```
 
 ## BUILD
-### Linux
-Dependencies: cmake, clang
+On Linux: `./build.sh`
+
+On Windows: `./build.bat`
+
+Example commands:
 ```bash
-./build.sh
+./build.sh sdl game
 ```
 ```bash
-./build.sh --build-type DEBUG
+./build.sh game
+```
+```bash
+./build.sh sdl game release
+```
+### Windows SDL build workaround
+Building CMake SDL from .bat file seems to be broken.
+What works from me is calling SDL build commands manually from Developer pwsh.exe (new powershell + cl compiler).
+Sorry about that, would be nice to fix this.
+```bat
+cd SDL
+cmake -S . -B build_win && cmake --build build_win
+cd ..
 ```

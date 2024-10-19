@@ -44,12 +44,12 @@ mkdir -p build
 
 # --- Build Everything (@build_targets) ---------------------------------------
 if [ -v sdl ]; then
+    didbuild=1
     if [ -d "SDL" ]; then
         # SDL build docs: https://github.com/libsdl-org/SDL/blob/main/docs/README-cmake.md
         # @todo(mg): handle release flag for SDL
         # @todo(mg): pass gcc/clang flag to SDL (is that even possible?)
         cd SDL
-        didbuild=1
         cmake -S . -B build -DSDL_SHARED=OFF -DSDL_STATIC=ON && cmake --build build
         cd ..
     else
@@ -58,7 +58,7 @@ if [ -v sdl ]; then
 fi
 
 cd build
-if [ -v game ];    then didbuild=1 && $compile ../src/main.c     $compile_link $out raddbg; fi
+if [ -v game ];    then didbuild=1 && $compile ../src/main.c     $compile_link $out demongus; fi
 cd ..
 
 # --- Warn On No Builds -------------------------------------------------------
