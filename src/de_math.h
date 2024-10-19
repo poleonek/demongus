@@ -1,9 +1,52 @@
 // ---
 // Scalar math
 // ---
+#define Min(a, b) ((a) < (b) ? (a) : (b))
+#define Max(a, b) ((a) > (b) ? (a) : (b))
+#define Clamp(min, max, val) (((val)<(min)) ? (min) : ((val)>(max))?(max):(val))
+
 static float LerpF(float a, float b, float t)
 {
     return a + (b - a) * t;
+}
+static float SqrtF(float a)
+{
+    return SDL_sqrtf(a);
+}
+
+// ---
+// Vector math
+// ---
+typedef union
+{
+    struct { float x, y; };
+    float E[2];
+} V2;
+
+static V2 V2_Scale(V2 a, float scale)
+{
+    return (V2){a.x*scale, a.y*scale};
+}
+static float V2_Inner(V2 a, V2 b)
+{
+    return a.x*b.x + a.y*b.y;
+}
+static float V2_LengthSq(V2 a)
+{
+    return V2_Inner(a, a);
+}
+static float V2_Length(V2 a)
+{
+    return SqrtF(V2_LengthSq(a));
+}
+static V2 V2_Normalize(V2 a)
+{
+    float length = V2_Length(a);
+    if (length) {
+        float length_inv = 1.f / length;
+        a = V2_Scale(a, length_inv);
+    }
+    return a;
 }
 
 // ---

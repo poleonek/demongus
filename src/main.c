@@ -21,7 +21,15 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     // input
     {
-        SDL_MouseButtonFlags mouse_buttons = SDL_GetMouseState(&app->mouse.x, &app->mouse.y);
+        app->mouse_keys = SDL_GetMouseState(&app->mouse_x, &app->mouse_y);
+
+        // keyboard state
+        {
+            int numkeys = 0;
+            const bool *key_state_arr = SDL_GetKeyboardState(&numkeys);
+            int to_copy = Min(numkeys, ArrayCount(app->keyboard));
+            memcpy(app->keyboard, key_state_arr, to_copy);
+        }
     }
 
     SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
