@@ -41,7 +41,7 @@ esac
 
 cd build
 
-clang ../main.c -I ../SDL/include -o demogus ../SDL/build/libSDL3.a -lm
+clang ../main.c -I ../SDL/include -o demongus ../SDL/build/libSDL3.a -lm
 
 echo "Created $BUILD_TYPE build"
 
