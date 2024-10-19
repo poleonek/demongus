@@ -13,20 +13,25 @@ static void Game_Iterate(AppState *app)
         app->dt = delta_time * (0.001f);
     }
 
-    // display entity
-    ForU32(i, app->object_count) {
-        Object *obj = app->object_pool + i;
+    // display entities
+    {
+        float camera_transform_x = app->width*0.5f - app->camera_x;
+        float camera_transform_y = app->height*0.5f - app->camera_y;
 
-        float dim = 20;
-        SDL_FRect rect = {
-            obj->x - obj->dim_x*0.5f,
-            obj->y - obj->dim_y*0.5f,
-            obj->dim_x,
-            obj->dim_y
-        };
+        ForU32(i, app->object_count) {
+            Object *obj = app->object_pool + i;
 
-        SDL_SetRenderDrawColorFloat(app->renderer, obj->color.r, obj->color.g, obj->color.b, obj->color.a);
-        SDL_RenderFillRect(app->renderer, &rect);
+            float dim = 20;
+            SDL_FRect rect = {
+                obj->x - obj->dim_x*0.5f + camera_transform_x,
+                obj->y - obj->dim_y*0.5f + camera_transform_y,
+                obj->dim_x,
+                obj->dim_y
+            };
+
+            SDL_SetRenderDrawColorFloat(app->renderer, obj->color.r, obj->color.g, obj->color.b, obj->color.a);
+            SDL_RenderFillRect(app->renderer, &rect);
+        }
     }
 
     // draw mouse
@@ -57,16 +62,35 @@ static Object *Object_Create(AppState *app, Uint32 flags)
     return obj;
 }
 
+static Object *Object_Wall(AppState *app, float x, float y,
+                           float dim_x, float dim_y)
+{
+    Object *obj = Object_Create(app, ObjectFlag_Draw);
+    obj->x = x;
+    obj->y = y;
+    obj->dim_x = dim_x;
+    obj->dim_y = dim_y;
+
+    static float r = 0.f;
+    r += 0.321f;
+    while (r > 1.f) r -= 1;
+
+    obj->color = ColorF_RGB(r, .5f, .9f);
+    return obj;
+}
+
 static void Game_Init(AppState *app)
 {
     app->frame_time = SDL_GetTicks();
 
-    ForU32(add_index, 1) {
-        Object *obj = Object_Create(app, ObjectFlag_Draw);
-        obj->x = 500.f;
-        obj->y = 180.f;
-        obj->dim_x = 20.f;
-        obj->dim_y = 50.f;
-        obj->color = ColorF_RGB(.3f, .5f, .9f);
+    // add walls
+    {
+        float thickness = 10.f;
+        float length = 60.f;
+        float off = length*0.5f - thickness*0.5f;
+        Object_Wall(app, off, 0, thickness, length);
+        Object_Wall(app, -off, 0, thickness, length);
+        Object_Wall(app, 0, off, length, thickness);
+        Object_Wall(app, 0, -off, length, thickness);
     }
 }

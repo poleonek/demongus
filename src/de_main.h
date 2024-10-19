@@ -6,7 +6,7 @@ typedef enum {
 typedef struct
 {
     Uint32 flags;
-    float x, y; // @todo(mg) add vectors?
+    float x, y; // position of center
     float dx, dy;
     float dim_x, dim_y;
     ColorF color;
@@ -31,4 +31,7 @@ typedef struct
     // Entities
     Object object_pool[4096];
     Uint32 object_count;
+
+    // Camera
+    float camera_x, camera_y;
 } AppState;
