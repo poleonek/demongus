@@ -27,11 +27,66 @@ static void Game_Iterate(AppState *app)
 
         Assert(app->player_id < ArrayCount(app->object_pool));
         Object *player = app->object_pool + app->player_id;
-        player->p.x += dir.x * player_speed;
-        player->p.y += dir.y * player_speed;
+        player->dp = V2_Scale(dir, player_speed);
+        //player->p = V2_Add(player->p, player->dp);
 
         // camera follows the player
         app->camera_p = player->p;
+    }
+
+    // movement
+    {
+        float wall_margin = 0.001f;
+        // @speed(mg) This could be speed up in multiple ways.
+        //            We could spatially partition the world into chunks
+        //            to avoid n^2 scan through all possible world objects.
+        //            We just don't care about this for now.
+        ForU32(obj_id, app->object_count)
+        {
+            Object *obj = app->object_pool + obj_id;
+            if (!(obj->flags & ObjectFlag_Move)) continue;
+            if (!obj->dp.x && !obj->dp.y) continue;
+
+            bool moved = false;
+
+            ForU32(obstacle_id, app->object_count)
+            {
+                Object *obstacle = app->object_pool + obstacle_id;
+                if (!(obstacle->flags & ObjectFlag_Collide)) continue;
+                if (obj == obstacle) continue;
+                // @speed(mg) early exist if obstacle is not in obj movement's bounding box
+                
+                V2 minkowski_half_dim = V2_Scale(V2_Add(obj->dim, obstacle->dim), 0.5f);
+                //V2 obs_min = V2_Sub(obstacle->p, obs_half_dim);
+                //V2 obs_max = V2_Add(obstacle->p, obs_half_dim);
+                
+                if (obj->dp.x)
+                {
+                    float near_wall_x = obstacle->p.x + (obj->dp.x < 0.f ? minkowski_half_dim.x : -minkowski_half_dim.x);
+                    float near_wall_y0 = obstacle->p.y - minkowski_half_dim.y;
+                    float near_wall_y1 = obstacle->p.y + minkowski_half_dim.y;
+                    
+                    float obj_wall_distance = near_wall_x - obj->p.x;
+                    float collision_t = obj_wall_distance / obj->dp.x;
+                    
+                    // @todo(mg) special handle case where: collision_t < (1.f - some_epsilon)
+                    // @todo(mg) make sure we handle the case where player is in the wall
+                    if (collision_t > 0.f && collision_t < 1.f)
+                    {
+                        V2 new_p = V2_Add(obj->p, obj->dp);
+                        new_p.x = near_wall_x + (obj->dp.x < 0.f ? wall_margin : -wall_margin);
+                        obj->p = new_p;
+                        moved = true;
+                        break; // @todo find the closest collision instead of find the first
+                    }
+                }
+            }
+
+            if (!moved)
+            {
+                obj->p = V2_Add(obj->p, obj->dp);
+            }
+        }
     }
 
     // display objects
@@ -43,11 +98,13 @@ static void Game_Iterate(AppState *app)
         }
         V2 window_transform = (V2){app->width*0.5f, app->height*0.5f};
 
-        ForU32(i, app->object_count) {
+        ForU32(i, app->object_count)
+        {
             Object *obj = app->object_pool + i;
 
             float dim = 20;
-            SDL_FRect rect = {
+            SDL_FRect rect =
+            {
                 obj->p.x - obj->dim.x*0.5f,
                 obj->p.y - obj->dim.y*0.5f,
                 obj->dim.x,
@@ -90,6 +147,15 @@ static void Game_Iterate(AppState *app)
     }
 }
 
+// @info(mg) This function will probably be replaced in the future
+//           when we track 'key/index' in the object itself.
+static Uint32 Object_IdFromPointer(AppState *app, Object *obj)
+{
+    size_t byte_delta = (size_t)obj - (size_t)app->object_pool;
+    size_t id = byte_delta / sizeof(*obj);
+    return (Uint32)id;
+}
+
 static Object *Object_Create(AppState *app, Uint32 flags)
 {
     Assert(app->object_count < ArrayCount(app->object_pool));
@@ -102,24 +168,14 @@ static Object *Object_Create(AppState *app, Uint32 flags)
     return obj;
 }
 
-// @info(mg) This function will probably be replaced in the future
-//           when we track 'key/index' in the object itself.
-static Uint32 Object_IdFromPointer(AppState *app, Object *obj)
-{
-    size_t byte_delta = (size_t)obj - (size_t)app->object_pool;
-    size_t id = byte_delta / sizeof(*obj);
-    return (Uint32)id;
-}
-
-
 static Object *Object_Wall(AppState *app, V2 p, V2 dim)
 {
-    Object *obj = Object_Create(app, ObjectFlag_Draw);
+    Object *obj = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Collide);
     obj->p = p;
     obj->dim = dim;
 
     static float r = 0.f;
-    r += 0.321f;
+    r += 0.421f;
     while (r > 1.f) r -= 1;
 
     obj->color = ColorF_RGB(r, .5f, .9f);
@@ -134,19 +190,21 @@ static void Game_Init(AppState *app)
 
     // add player
     {
-        Object *player = Object_Create(app, ObjectFlag_Draw);
-        player->dim.x = player->dim.y = 0.25f;
+        Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move);
+        player->dim.x = 0.5f;
+        player->dim.y = 0.7f;
+        player->color = ColorF_RGB(.97f, .09f ,0);
         app->player_id = Object_IdFromPointer(app, player);
     }
 
     // add walls
     {
         float thickness = 0.5f;
-        float length = 10.f;
+        float length = 7.5f;
         float off = length*0.5f - thickness*0.5f;
         Object_Wall(app, (V2){ off, 0}, (V2){thickness, length});
         Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
-        Object_Wall(app, (V2){0,  off}, (V2){length, thickness});
-        Object_Wall(app, (V2){0, -off}, (V2){length, thickness});
+        //Object_Wall(app, (V2){0,  off}, (V2){length, thickness});
+        //Object_Wall(app, (V2){0, -off}, (V2){length, thickness});
     }
 }

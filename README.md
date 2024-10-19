@@ -37,6 +37,6 @@ What works from me is calling SDL build commands manually from Developer pwsh.ex
 Sorry about that, would be nice to fix this.
 ```bat
 cd SDL
-cmake -S . -B build_win && cmake --build build_win
+cmake -S . -B build\win -DSDL_SHARED=OFF -DSDL_STATIC=ON && cmake --build build\win
 cd ..
 ```

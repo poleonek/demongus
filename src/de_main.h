@@ -1,12 +1,20 @@
 typedef enum {
-    ObjectFlag_Movement  = (1 << 0),
-    ObjectFlag_Draw      = (1 << 1),
+    Axis2_X,
+    Axis2_Y,
+    Axis2_COUNT
+} Axis2;
+
+typedef enum {
+    ObjectFlag_Draw    = (1 << 0),
+    ObjectFlag_Move    = (1 << 1),
+    ObjectFlag_Collide = (1 << 2),
 } ObjectFlags;
 
 typedef struct
 {
     Uint32 flags;
     V2 p; // position of center
+    V2 dp; // change of p
     V2 dim;
     ColorF color;
 } Object;
@@ -38,5 +46,4 @@ typedef struct
     // how much of the world is visible in the camera
     // float camera_scale = Max(width, height) / camera_range
     float camera_range;
-
 } AppState;
