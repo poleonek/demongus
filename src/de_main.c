@@ -27,8 +27,8 @@ static void Game_Iterate(AppState *app)
 
         Assert(app->player_id < ArrayCount(app->object_pool));
         Object *player = app->object_pool + app->player_id;
-        player->x += dir.x * player_speed;
-        player->y += dir.y * player_speed;
+        player->p.x += dir.x * player_speed;
+        player->p.y += dir.y * player_speed;
     }
 
     // display objects
@@ -39,18 +39,18 @@ static void Game_Iterate(AppState *app)
             camera_scale = wh / app->camera_range;
         }
 
-        float camera_transform_x = app->width*0.5f - app->camera_x;
-        float camera_transform_y = app->height*0.5f - app->camera_y;
+        float camera_transform_x = app->width*0.5f - app->camera_p.x;
+        float camera_transform_y = app->height*0.5f - app->camera_p.y;
 
         ForU32(i, app->object_count) {
             Object *obj = app->object_pool + i;
 
             float dim = 20;
             SDL_FRect rect = {
-                obj->x - obj->dim_x*0.5f,
-                obj->y - obj->dim_y*0.5f,
-                obj->dim_x,
-                obj->dim_y
+                obj->p.x - obj->dim.x*0.5f,
+                obj->p.y - obj->dim.y*0.5f,
+                obj->dim.x,
+                obj->dim.y
             };
 
             // apply camera
@@ -79,7 +79,7 @@ static void Game_Iterate(AppState *app)
 
         float dim = 20;
         SDL_FRect rect = {
-            app->mouse_x - 0.5f*dim, app->mouse_y - 0.5f*dim,
+            app->mouse.x - 0.5f*dim, app->mouse.y - 0.5f*dim,
             dim, dim
         };
         SDL_RenderFillRect(app->renderer, &rect);
@@ -108,14 +108,11 @@ static Uint32 Object_IdFromPointer(AppState *app, Object *obj)
 }
 
 
-static Object *Object_Wall(AppState *app, float x, float y,
-                           float dim_x, float dim_y)
+static Object *Object_Wall(AppState *app, V2 p, V2 dim)
 {
     Object *obj = Object_Create(app, ObjectFlag_Draw);
-    obj->x = x;
-    obj->y = y;
-    obj->dim_x = dim_x;
-    obj->dim_y = dim_y;
+    obj->p = p;
+    obj->dim = dim;
 
     static float r = 0.f;
     r += 0.321f;
@@ -134,7 +131,7 @@ static void Game_Init(AppState *app)
     // add player
     {
         Object *player = Object_Create(app, ObjectFlag_Draw);
-        player->dim_x = player->dim_y = 0.25f;
+        player->dim.x = player->dim.y = 0.25f;
         app->player_id = Object_IdFromPointer(app, player);
     }
 
@@ -143,9 +140,9 @@ static void Game_Init(AppState *app)
         float thickness = 0.5f;
         float length = 10.f;
         float off = length*0.5f - thickness*0.5f;
-        Object_Wall(app, off, 0, thickness, length);
-        Object_Wall(app, -off, 0, thickness, length);
-        Object_Wall(app, 0, off, length, thickness);
-        Object_Wall(app, 0, -off, length, thickness);
+        Object_Wall(app, (V2){ off, 0}, (V2){thickness, length});
+        Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
+        Object_Wall(app, (V2){0,  off}, (V2){length, thickness});
+        Object_Wall(app, (V2){0, -off}, (V2){length, thickness});
     }
 }

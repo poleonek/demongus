@@ -21,7 +21,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
     // input
     {
-        app->mouse_keys = SDL_GetMouseState(&app->mouse_x, &app->mouse_y);
+        app->mouse_keys = SDL_GetMouseState(&app->mouse.x, &app->mouse.y);
 
         // keyboard state
         {

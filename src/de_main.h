@@ -6,9 +6,8 @@ typedef enum {
 typedef struct
 {
     Uint32 flags;
-    float x, y; // position of center
-    //float dx, dy;
-    float dim_x, dim_y;
+    V2 p; // position of center
+    V2 dim;
     ColorF color;
 } Object;
 
@@ -20,7 +19,7 @@ typedef struct
     int width, height;
 
     // user input
-    float mouse_x, mouse_y;
+    V2 mouse;
     SDL_MouseButtonFlags mouse_keys;
     bool keyboard[SDL_SCANCODE_COUNT]; // true == key is down
 
@@ -34,7 +33,7 @@ typedef struct
     Uint32 player_id;
 
     // Camera
-    float camera_x, camera_y;
+    V2 camera_p;
     // :: camera_range ::
     // how much of the world is visible in the camera
     // float camera_scale = Max(width, height) / camera_range
