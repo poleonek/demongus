@@ -39,6 +39,10 @@ static V2 V2_Sub(V2 a, V2 b)
 {
     return (V2){a.x - b.x, a.y - b.y};
 }
+static V2 V2_Mul(V2 a, V2 b)
+{
+    return (V2){a.x * b.x, a.y * b.y};
+}
 static float V2_Inner(V2 a, V2 b)
 {
     return a.x*b.x + a.y*b.y;
