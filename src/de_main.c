@@ -180,7 +180,7 @@ static Object *Object_Create(AppState *app, Uint32 flags)
     Object *obj = app->object_pool + app->object_count;
     app->object_count += 1;
 
-    MemsetZeroStructPtr(obj);
+    SDL_zerop(obj);
     obj->flags = flags;
     obj->color = ColorF_RGB(1,1,1);
     return obj;

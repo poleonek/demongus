@@ -1,7 +1,7 @@
+#define SDL_ASSERT_LEVEL 2
 #include <SDL3/SDL_stdinc.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <assert.h>
 
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL.h>
