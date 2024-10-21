@@ -21,6 +21,7 @@ typedef struct
     V2 p; // position of center
     V2 dp; // change of p
     V2 dim;
+    float rot; // rotation in turns; 1.0 -> 360 degrees
     ColorF color;
 } Object;
 
@@ -40,10 +41,10 @@ typedef struct
     Uint64 frame_time;
     float dt;
 
-    // Entities
+    // Objects
     Object object_pool[4096];
     Uint32 object_count;
-    Uint32 player_id;
+    Uint32 player_ids[2];
 
     // Camera
     V2 camera_p;

@@ -14,25 +14,42 @@ static void Game_Iterate(AppState *app)
     }
 
     // player input
+    ForArray(player_id_index, app->player_ids)
     {
+        Uint32 player_id = app->player_ids[player_id_index];
+
         V2 dir = {0};
-        if (app->keyboard[SDL_SCANCODE_W] || app->keyboard[SDL_SCANCODE_UP])    dir.y += 1;
-        if (app->keyboard[SDL_SCANCODE_S] || app->keyboard[SDL_SCANCODE_DOWN])  dir.y -= 1;
-        if (app->keyboard[SDL_SCANCODE_A] || app->keyboard[SDL_SCANCODE_LEFT])  dir.x -= 1;
-        if (app->keyboard[SDL_SCANCODE_D] || app->keyboard[SDL_SCANCODE_RIGHT]) dir.x += 1;
+        if (player_id_index == 0)
+        {
+            if (app->keyboard[SDL_SCANCODE_W] || app->keyboard[SDL_SCANCODE_UP])    dir.y += 1;
+            if (app->keyboard[SDL_SCANCODE_S] || app->keyboard[SDL_SCANCODE_DOWN])  dir.y -= 1;
+            if (app->keyboard[SDL_SCANCODE_A] || app->keyboard[SDL_SCANCODE_LEFT])  dir.x -= 1;
+            if (app->keyboard[SDL_SCANCODE_D] || app->keyboard[SDL_SCANCODE_RIGHT]) dir.x += 1;
+        }
+        else if (player_id_index == 1)
+        {
+            // for vim fans
+            if (app->keyboard[SDL_SCANCODE_K]) dir.y += 1;
+            if (app->keyboard[SDL_SCANCODE_J]) dir.y -= 1;
+            if (app->keyboard[SDL_SCANCODE_H]) dir.x -= 1;
+            if (app->keyboard[SDL_SCANCODE_L]) dir.x += 1;
+        }
         dir = V2_Normalize(dir);
 
-        Assert(app->player_id < ArrayCount(app->object_pool));
-        Object *player = app->object_pool + app->player_id;
+        Object *player = app->object_pool + player_id;
 
-        bool ice_skating_dlc = true;
+        bool ice_skating_dlc = (player_id_index == 1);
         if (ice_skating_dlc)
         {
-            float player_speed = 0.001f * app->dt;
+            float player_speed = 0.01f * app->dt;
             V2 player_ddp = V2_Scale(dir, player_speed);
             player->dp = V2_Add(player->dp, player_ddp);
 
-            float drag = -0.8f * app->dt;
+            // pro skater turns
+            //if (dir.x && SignF(dir.x) != SignF(player->dp.x)) player->dp.x *= -0.9f;
+            //if (dir.y && SignF(dir.y) != SignF(player->dp.y)) player->dp.y *= -0.9f;
+
+            float drag = -15.f * app->dt;
             V2 player_drag = V2_Scale(player->dp, drag);
             player->dp = V2_Add(player->dp, player_drag);
         }
@@ -56,7 +73,8 @@ static void Game_Iterate(AppState *app)
             if (!(obj->flags & ObjectFlag_Move)) continue;
             if (!obj->dp.x && !obj->dp.y) continue;
 
-            ForU32(iteration_index, 2)
+            Uint32 iteration_count = 2;
+            ForU32(iteration_index, iteration_count)
             {
                 V2 obj_new_p = V2_Add(obj->p, obj->dp);
 
@@ -112,6 +130,16 @@ static void Game_Iterate(AppState *app)
 
                     obj->p.E[main_axis] = obj_new_p.E[main_axis];
                     obj->dp.E[main_axis] = 0.f; // @todo(mg) this is not ideal, angled walls will be "sticky", we should calculate new dp vector here
+
+                    if (iteration_index + 1 == iteration_count)
+                    {
+                        // we are in the last iteration, stop all reminding movement to prevent tunneling through walls
+                        obj->dp = (V2){0};
+                    }
+                }
+                else
+                {
+                    break;
                 }
             }
 
@@ -121,7 +149,7 @@ static void Game_Iterate(AppState *app)
 
     // move camera
     {
-        Object *player = app->object_pool + app->player_id;
+        Object *player = app->object_pool + app->player_ids[0];
         app->camera_p = player->p;
     }
 
@@ -164,6 +192,7 @@ static void Game_Iterate(AppState *app)
             // (SDL Y is down) -> (game world Y is up) transform
             rect.y = app->height - rect.y - rect.h;
 
+            // @todo(mg) display rotated rectangles! Calculate rotated rect points and use SDL_RenderGeometry? Idk
             SDL_SetRenderDrawColorFloat(app->renderer, obj->color.r, obj->color.g, obj->color.b, obj->color.a);
             SDL_RenderFillRect(app->renderer, &rect);
         }
@@ -214,10 +243,13 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
     obj->dim = dim;
 
     static float r = 0.f;
-    r += 0.421f;
-    while (r > 1.f) r -= 1;
+    static float g = 0.5f;
+    r += 0.321f;
+    g += 0.111f;
+    while (r > 1.f) r -= 1.f;
+    while (g > 1.f) g -= 1.f;
 
-    obj->color = ColorF_RGB(r, .5f, .9f);
+    obj->color = ColorF_RGB(r, g, 0.5f);
     return obj;
 }
 
@@ -229,11 +261,21 @@ static void Game_Init(AppState *app)
 
     // add player
     {
-        Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move);
+        Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
+        player->p.x = -1.f;
         player->dim.x = 0.5f;
         player->dim.y = 0.7f;
-        player->color = ColorF_RGB(.97f, .09f ,0);
-        app->player_id = Object_IdFromPointer(app, player);
+        player->color = ColorF_RGB(.89f, .02f, 0);
+        app->player_ids[0] = Object_IdFromPointer(app, player);
+    }
+    // add player2
+    {
+        Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
+        player->p.x = 1.f;
+        player->dim.x = 0.3f;
+        player->dim.y = 0.9f;
+        player->color = ColorF_RGB(0.4f, .4f, .94f);
+        app->player_ids[1] = Object_IdFromPointer(app, player);
     }
 
     // add walls
@@ -245,5 +287,8 @@ static void Game_Init(AppState *app)
         Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
         Object_Wall(app, (V2){0, off}, (V2){length, thickness});
         Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
+
+        Object *rot_wall = Object_Wall(app, (V2){0,-off*2.f}, (V2){length*0.5f, thickness});
+        rot_wall->rot = 0.125f;
     }
 }
