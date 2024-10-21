@@ -4,6 +4,11 @@ typedef enum {
     Axis2_COUNT
 } Axis2;
 
+static Axis2 Axis2_Other(Axis2 axis)
+{
+    return (axis == Axis2_X ? Axis2_Y : Axis2_X);
+}
+
 typedef enum {
     ObjectFlag_Draw    = (1 << 0),
     ObjectFlag_Move    = (1 << 1),

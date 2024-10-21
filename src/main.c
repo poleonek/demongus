@@ -2,6 +2,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <float.h>
 
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL.h>

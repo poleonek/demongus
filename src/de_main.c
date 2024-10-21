@@ -3,7 +3,6 @@
 //           and it should be isolated from platform specific
 //           stuff when it's reasonable.
 //
-
 static void Game_Iterate(AppState *app)
 {
     {
@@ -26,13 +25,22 @@ static void Game_Iterate(AppState *app)
         Assert(app->player_id < ArrayCount(app->object_pool));
         Object *player = app->object_pool + app->player_id;
 
-        float player_speed = 0.001f * app->dt;
-        V2 player_ddp = V2_Scale(dir, player_speed);
-        player->dp = V2_Add(player->dp, player_ddp);
+        bool ice_skating_dlc = true;
+        if (ice_skating_dlc)
+        {
+            float player_speed = 0.001f * app->dt;
+            V2 player_ddp = V2_Scale(dir, player_speed);
+            player->dp = V2_Add(player->dp, player_ddp);
 
-        float drag = -0.8f * app->dt;
-        V2 player_drag = V2_Scale(player->dp, drag);
-        player->dp = V2_Add(player->dp, player_drag);
+            float drag = -0.8f * app->dt;
+            V2 player_drag = V2_Scale(player->dp, drag);
+            player->dp = V2_Add(player->dp, player_drag);
+        }
+        else
+        {
+            float player_speed = 5.f * app->dt;
+            player->dp = V2_Scale(dir, player_speed);
+        }
     }
 
     // movement
@@ -48,49 +56,62 @@ static void Game_Iterate(AppState *app)
             if (!(obj->flags & ObjectFlag_Move)) continue;
             if (!obj->dp.x && !obj->dp.y) continue;
 
-            // @todo(mg) iterate through multiple collisions - otherwise the player will get into the walls on complex geometry
-            bool moved = false;
-            ForU32(obstacle_id, app->object_count)
+            ForU32(iteration_index, 2)
             {
-                Object *obstacle = app->object_pool + obstacle_id;
-                if (!(obstacle->flags & ObjectFlag_Collide)) continue;
-                if (obj == obstacle) continue;
-                // @speed(mg) early exist if obstacle is not in obj movement's bounding box
+                V2 obj_new_p = V2_Add(obj->p, obj->dp);
 
-                V2 minkowski_half_dim = V2_Scale(V2_Add(obj->dim, obstacle->dim), 0.5f);
+                struct {
+                    Axis2 axis;
+                    float t;
+                    float near_wall_main;
+                } closest_collision = {.t = FLT_MAX};
 
-                ForU32(main_axis, Axis2_COUNT)
+                ForU32(obstacle_id, app->object_count)
                 {
-                    Axis2 other_axis = (main_axis == Axis2_X ? Axis2_Y : Axis2_X);
+                    Object *obstacle = app->object_pool + obstacle_id;
+                    if (!(obstacle->flags & ObjectFlag_Collide)) continue;
+                    if (obj == obstacle) continue;
 
-                    if (obj->dp.E[main_axis])
+                    V2 minkowski_half_dim = V2_Scale(V2_Add(obj->dim, obstacle->dim), 0.5f);
+
+                    ForU32(main_axis, Axis2_COUNT)
                     {
-                        float near_wall_main = obstacle->p.E[main_axis] -
-                            minkowski_half_dim.E[main_axis]*SignF(obj->dp.E[main_axis]);
-                        float near_wall_other0 = obstacle->p.E[other_axis] - minkowski_half_dim.E[other_axis];
-                        float near_wall_other1 = obstacle->p.E[other_axis] + minkowski_half_dim.E[other_axis];
+                        Axis2 other_axis = Axis2_Other(main_axis);
 
-                        float obj_wall_distance = near_wall_main - obj->p.E[main_axis];
-                        float collision_t = obj_wall_distance / obj->dp.E[main_axis];
-
-                        // @todo(mg) special handle case where: collision_t < (1.f - some_epsilon)
-                        // @todo(mg) make sure we handle the case where player is in the wall
-
-                        if (collision_t > 0.f && collision_t < 1.f)
+                        if (obj->dp.E[main_axis])
                         {
-                            V2 new_p = V2_Add(obj->p, obj->dp);
-                            if (new_p.E[other_axis] >= near_wall_other0 &&
-                                new_p.E[other_axis] <= near_wall_other1)
+                            float near_wall_other0 = obstacle->p.E[other_axis] - minkowski_half_dim.E[other_axis];
+                            float near_wall_other1 = obstacle->p.E[other_axis] + minkowski_half_dim.E[other_axis];
+                            if (obj_new_p.E[other_axis] >= near_wall_other0 &&
+                                obj_new_p.E[other_axis] <= near_wall_other1)
                             {
-                                new_p.E[main_axis] = near_wall_main - wall_margin*SignF(obj->dp.E[main_axis]);
+                                float near_wall_main = obstacle->p.E[main_axis] -
+                                    minkowski_half_dim.E[main_axis]*SignF(obj->dp.E[main_axis]);
 
-                                obj->p.E[main_axis] = new_p.E[main_axis];
-                                obj->dp.E[main_axis] = 0.f; // @todo(mg) this is not ideal, angled walls will be "sticky", we should calculate new dp vector here
-                                moved = true;
-                                break; // @todo find the closest collision instead of finding the first
+                                float obj_wall_distance = near_wall_main - obj->p.E[main_axis];
+                                float collision_t = obj_wall_distance / obj->dp.E[main_axis];
+
+                                if (collision_t >= 0.f && collision_t < closest_collision.t)
+                                {
+                                    closest_collision.axis = main_axis;
+                                    closest_collision.t = collision_t;
+                                    closest_collision.near_wall_main = near_wall_main;
+                                }
                             }
                         }
                     }
+                }
+
+                // @todo(mg) make sure we handle the case where player is in the wall
+                if (closest_collision.t >= 0.f && closest_collision.t < 1.f)
+                {
+                    Axis2 main_axis = closest_collision.axis;
+
+                    obj_new_p.E[main_axis] = closest_collision.near_wall_main -
+                        wall_margin*SignF(obj->dp.E[main_axis]);
+
+                    obj->p.E[main_axis] = obj_new_p.E[main_axis];
+                    obj->dp.E[main_axis] = 0.f; // @todo(mg) this is not ideal, angled walls will be "sticky", we should calculate new dp vector here
                 }
             }
 
