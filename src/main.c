@@ -14,6 +14,7 @@
 #include "de_base.h"
 #include "de_math.h"
 #include "de_main.h"
+#include "de_object.c"
 #include "de_main.c"
 
 SDL_AppResult SDL_AppIterate(void* appstate)
