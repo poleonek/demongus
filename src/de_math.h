@@ -135,3 +135,8 @@ static SDL_FColor ColorF_To_SDL_FColor(ColorF f)
 {
     return (SDL_FColor){f.r, f.g, f.b, f.a};
 }
+
+static SDL_FPoint V2_To_SDL_FPoint(V2 v)
+{
+    return (SDL_FPoint){v.x, v.y};
+}

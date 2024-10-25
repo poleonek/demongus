@@ -45,6 +45,7 @@ typedef struct
     Object object_pool[4096];
     Uint32 object_count;
     Uint32 player_ids[2];
+    Uint32 special_wall;
 
     // Camera
     V2 camera_p;

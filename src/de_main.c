@@ -3,6 +3,13 @@
 //           and it should be isolated from platform specific
 //           stuff when it's reasonable.
 //
+static Object *Object_Get(AppState *app, Uint32 id)
+{
+    Assert(app->object_count < ArrayCount(app->object_pool));
+    Assert(id < app->object_count);
+    return app->object_pool + id;
+}
+
 static void Game_Iterate(AppState *app)
 {
     {
@@ -11,6 +18,12 @@ static void Game_Iterate(AppState *app)
         app->frame_time = new_frame_time;
         app->dt = delta_time * (0.001f);
         app->dt = Min(app->dt, 1.f); // clamp dt to 1s
+    }
+
+    // animate special wall
+    {
+        Object *obj = Object_Get(app, app->special_wall);
+        obj->rotation += app->dt;
     }
 
     // player input
@@ -36,7 +49,7 @@ static void Game_Iterate(AppState *app)
         }
         dir = V2_Normalize(dir);
 
-        Object *player = app->object_pool + player_id;
+        Object *player = Object_Get(app, player_id);
 
         bool ice_skating_dlc = (player_id_index == 1);
         if (ice_skating_dlc)
@@ -149,7 +162,7 @@ static void Game_Iterate(AppState *app)
 
     // move camera
     {
-        Object *player = app->object_pool + app->player_ids[0];
+        Object *player = Object_Get(app, app->player_ids[0]);
         app->camera_p = player->p;
     }
 
@@ -174,67 +187,57 @@ static void Game_Iterate(AppState *app)
             float x1 = half_dim.x;
             float y1 = half_dim.y;
 
-#if 0
+            V2 points[4] =
+            {
+                (V2){x0, y0},
+                (V2){x1, y0},
+                (V2){x0, y1},
+                (V2){x1, y1},
+            };
+
             float s = SinF(obj->rotation);
             float c = CosF(obj->rotation);
 
-            float rot_x0 = x0 * c - y0 * s;
-            float rot_y0 = x0 * s + y0 * c;
-            float rot_x1 = x1 * c - y1 * s;
-            float rot_y1 = x1 * s + y1 * c;
-            rot_x0 += obj->p.x;
-            rot_y0 += obj->p.y;
-            rot_x1 += obj->p.x;
-            rot_y1 += obj->p.y;
-#else
-            x0 += obj->p.x;
-            y0 += obj->p.y;
-            x1 += obj->p.x;
-            y1 += obj->p.y;
-
-
-            // apply camera
+            ForArray(point_index, points)
             {
-                x0 -= app->camera_p.x;
-                y0 -= app->camera_p.y;
-                x1 -= app->camera_p.x;
-                y1 -= app->camera_p.y;
+                V2 *point = points + point_index;
 
-                x0 *= camera_scale;
-                y0 *= camera_scale;
-                x1 *= camera_scale;
-                y1 *= camera_scale;
+                // rotate
+                float new_x = point->x * c - point->y * s;
+                float new_y = point->x * s + point->y * c;
 
-                x0 += window_transform.x;
-                y0 += window_transform.y;
-                x1 += window_transform.x;
-                y1 += window_transform.y;
+                // move to obj origin
+                new_x += obj->p.x;
+                new_y += obj->p.y;
 
-                // fix y
-                y0 = app->height - y0;
-                y1 = app->height - y1;
+                // apply camera transform
+                new_x -= app->camera_p.x;
+                new_y -= app->camera_p.y;
+
+                new_x *= camera_scale;
+                new_y *= camera_scale;
+
+                new_x += window_transform.x;
+                new_y += window_transform.y;
+
+                // fix y axis direction to +Y up (SDL uses +Y down, -Y up)
+                new_y = app->height - new_y;
+
+                // store
+                *point = (V2){new_x, new_y};
             }
-#endif
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
             SDL_Vertex vert[4];
             SDL_zerop(vert);
 
-            vert[0].position.x = x0;
-            vert[0].position.y = y0;
-            vert[0].color = fcolor;
-
-            vert[1].position.x = x1;
-            vert[1].position.y = y0;
-            vert[1].color = fcolor;
-
-            vert[2].position.x = x0;
-            vert[2].position.y = y1;
-            vert[2].color = fcolor;
-
-            vert[3].position.x = x1;
-            vert[3].position.y = y1;
-            vert[3].color = fcolor;
+            static_assert(ArrayCount(points) == ArrayCount(vert));
+            ForArray(i, points)
+            {
+                V2 *point = points + i;
+                vert[i].position = V2_To_SDL_FPoint(*point);
+                vert[i].color = fcolor;
+            }
 
             int indices[] = { 0, 1, 2, 2, 3, 1 };
             SDL_RenderGeometry(app->renderer, 0,
@@ -335,5 +338,6 @@ static void Game_Init(AppState *app)
 
         Object *rot_wall = Object_Wall(app, (V2){0,-off*2.f}, (V2){length*0.5f, thickness});
         rot_wall->rotation = 0.125f;
+        app->special_wall = Object_IdFromPointer(app, rot_wall);
     }
 }
