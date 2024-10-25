@@ -291,8 +291,15 @@ static void Game_Init(AppState *app)
         Object_Wall(app, (V2){0, off}, (V2){length, thickness});
         Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
 
-        Object *rot_wall = Object_Wall(app, (V2){0,-off*2.f}, (V2){length*0.5f, thickness});
-        rot_wall->rotation = 0.125f;
-        app->special_wall = Object_IdFromPointer(app, rot_wall);
+        {
+            Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
+            rot_wall->rotation = 0.125f;
+        }
+
+        {
+            Object *rot_wall = Object_Wall(app, (V2){off,-off*2.f}, (V2){length*0.5f, thickness});
+            rot_wall->rotation = 0.125f;
+            app->special_wall = Object_IdFromPointer(app, rot_wall);
+        }
     }
 }
