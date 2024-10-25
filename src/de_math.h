@@ -21,6 +21,14 @@ static float SignF(float a)
 {
     return (a < 0.f ? -1.f : 1.f);
 }
+static float SinF(float turns)
+{
+    return SDL_sinf(turns);
+}
+static float CosF(float turns)
+{
+    return SDL_cosf(turns);
+}
 
 // ---
 // Vector math
@@ -106,7 +114,7 @@ static ColorF ColorF_ChangeA(ColorF f, float a)
 }
 
 // Packed version but SDL api accepts floats too
-static SDL_Color ColorF_To_SDL(ColorF f)
+static SDL_Color ColorF_To_SDL_Color(ColorF f)
 {
     float inv = 1.f / 255.f;
     Uint32 r = (Uint32)(f.r * inv);
@@ -121,4 +129,9 @@ static SDL_Color ColorF_To_SDL(ColorF f)
         (a & 0xff) << 24,
     };
     return res;
+}
+
+static SDL_FColor ColorF_To_SDL_FColor(ColorF f)
+{
+    return (SDL_FColor){f.r, f.g, f.b, f.a};
 }

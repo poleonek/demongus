@@ -165,36 +165,81 @@ static void Game_Iterate(AppState *app)
         ForU32(i, app->object_count)
         {
             Object *obj = app->object_pool + i;
+            V2 half_dim = V2_Scale(obj->dim, 0.5f);
 
-            float dim = 20;
-            SDL_FRect rect =
-            {
-                obj->p.x - obj->dim.x*0.5f,
-                obj->p.y - obj->dim.y*0.5f,
-                obj->dim.x,
-                obj->dim.y
-            };
+            // @todo(mg) display rotated rectangles! Calculate rotated rect points and use SDL_RenderGeometry? Idk
+
+            float x0 = -half_dim.x;
+            float y0 = -half_dim.y;
+            float x1 = half_dim.x;
+            float y1 = half_dim.y;
+
+#if 0
+            float s = SinF(obj->rotation);
+            float c = CosF(obj->rotation);
+
+            float rot_x0 = x0 * c - y0 * s;
+            float rot_y0 = x0 * s + y0 * c;
+            float rot_x1 = x1 * c - y1 * s;
+            float rot_y1 = x1 * s + y1 * c;
+            rot_x0 += obj->p.x;
+            rot_y0 += obj->p.y;
+            rot_x1 += obj->p.x;
+            rot_y1 += obj->p.y;
+#else
+            x0 += obj->p.x;
+            y0 += obj->p.y;
+            x1 += obj->p.x;
+            y1 += obj->p.y;
+
 
             // apply camera
             {
-                rect.x -= app->camera_p.x;
-                rect.y -= app->camera_p.y;
+                x0 -= app->camera_p.x;
+                y0 -= app->camera_p.y;
+                x1 -= app->camera_p.x;
+                y1 -= app->camera_p.y;
 
-                rect.x *= camera_scale;
-                rect.y *= camera_scale;
-                rect.w *= camera_scale;
-                rect.h *= camera_scale;
+                x0 *= camera_scale;
+                y0 *= camera_scale;
+                x1 *= camera_scale;
+                y1 *= camera_scale;
 
-                rect.x += window_transform.x;
-                rect.y += window_transform.y;
+                x0 += window_transform.x;
+                y0 += window_transform.y;
+                x1 += window_transform.x;
+                y1 += window_transform.y;
+
+                // fix y
+                y0 = app->height - y0;
+                y1 = app->height - y1;
             }
+#endif
 
-            // (SDL Y is down) -> (game world Y is up) transform
-            rect.y = app->height - rect.y - rect.h;
+            SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
+            SDL_Vertex vert[4];
+            SDL_zerop(vert);
 
-            // @todo(mg) display rotated rectangles! Calculate rotated rect points and use SDL_RenderGeometry? Idk
-            SDL_SetRenderDrawColorFloat(app->renderer, obj->color.r, obj->color.g, obj->color.b, obj->color.a);
-            SDL_RenderFillRect(app->renderer, &rect);
+            vert[0].position.x = x0;
+            vert[0].position.y = y0;
+            vert[0].color = fcolor;
+
+            vert[1].position.x = x1;
+            vert[1].position.y = y0;
+            vert[1].color = fcolor;
+
+            vert[2].position.x = x0;
+            vert[2].position.y = y1;
+            vert[2].color = fcolor;
+
+            vert[3].position.x = x1;
+            vert[3].position.y = y1;
+            vert[3].color = fcolor;
+
+            int indices[] = { 0, 1, 2, 2, 3, 1 };
+            SDL_RenderGeometry(app->renderer, 0,
+                               vert, ArrayCount(vert),
+                               indices, ArrayCount(indices));
         }
     }
 
@@ -289,6 +334,6 @@ static void Game_Init(AppState *app)
         Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
 
         Object *rot_wall = Object_Wall(app, (V2){0,-off*2.f}, (V2){length*0.5f, thickness});
-        rot_wall->rot = 0.125f;
+        rot_wall->rotation = 0.125f;
     }
 }

@@ -21,7 +21,7 @@ typedef struct
     V2 p; // position of center
     V2 dp; // change of p
     V2 dim;
-    float rot; // rotation in turns; 1.0 -> 360 degrees
+    float rotation; // in turns; 1.0 == 360 degrees
     ColorF color;
 } Object;
 
