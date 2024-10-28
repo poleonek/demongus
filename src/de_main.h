@@ -27,6 +27,9 @@ typedef struct
     // calculated after applying rotation
     V2 normals[4]; // right, top, left, bottom
     V2 vertices[4]; // bottom-left, bottom-right, top-left, top-right
+
+    // temp
+    bool has_collision;
 } Object;
 
 typedef struct
@@ -45,13 +48,13 @@ typedef struct
     Uint64 frame_time;
     float dt;
 
-    // Objects
+    // objects
     Object object_pool[4096];
     Uint32 object_count;
     Uint32 player_ids[2];
     Uint32 special_wall;
 
-    // Camera
+    // camera
     V2 camera_p;
     // :: camera_range ::
     // how much of the world is visible in the camera

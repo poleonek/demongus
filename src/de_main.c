@@ -50,7 +50,7 @@ static void Game_Iterate(AppState *app)
 
         Object *player = Object_Get(app, player_id);
 
-        bool ice_skating_dlc = (player_id_index == 1);
+        bool ice_skating_dlc = (player_id_index == 0);
         if (ice_skating_dlc)
         {
             float player_speed = 0.01f * app->dt;
@@ -107,14 +107,23 @@ static void Game_Iterate(AppState *app)
     }
 
     // movement
-    if (0)
+    if (1)
     {
+        ForU32(obj_id, app->object_count)
+        {
+            Object *obj = app->object_pool + obj_id;
+            obj->has_collision = false;
+        }
+
         // @todo sat algorithm
         ForU32(obj_id, app->object_count)
         {
             Object *obj = app->object_pool + obj_id;
             if (!(obj->flags & ObjectFlag_Move)) continue;
-            if (!obj->dp.x && !obj->dp.y) continue;
+
+            obj->p = V2_Add(obj->p, obj->dp);
+
+            Arr4RngF minmax_obj_obj = Object_NormalsInnerVertices(obj, obj);
 
             ForU32(obstacle_id, app->object_count)
             {
@@ -122,6 +131,15 @@ static void Game_Iterate(AppState *app)
                 if (!(obstacle->flags & ObjectFlag_Collide)) continue;
                 if (obj == obstacle) continue;
 
+                Arr4RngF minmax_obj_obstacle = Object_NormalsInnerVertices(obj, obstacle);
+                bool overlaps = Arr4RngF_Overlaps(minmax_obj_obj, minmax_obj_obstacle);
+
+                Arr4RngF minmax_obstacle_obstacle = Object_NormalsInnerVertices(obstacle, obstacle);
+                Arr4RngF minmax_obstacle_obj = Object_NormalsInnerVertices(obstacle, obj);
+                overlaps &= Arr4RngF_Overlaps(minmax_obstacle_obstacle, minmax_obstacle_obj);
+
+                obj->has_collision |= overlaps;
+                obstacle->has_collision |= overlaps;
             }
         }
 
@@ -255,6 +273,15 @@ static void Game_Iterate(AppState *app)
             }
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
+            fcolor.a = 0.2f;
+            if (obj->has_collision)
+            {
+                fcolor.r = SqrtF(fcolor.r);
+                fcolor.g = SqrtF(fcolor.g);
+                fcolor.b = SqrtF(fcolor.b);
+                fcolor.a = 0.9f;
+            }
+
             SDL_Vertex sdl_verts[4];
             SDL_zerop(sdl_verts);
 

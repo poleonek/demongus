@@ -78,6 +78,37 @@ static V2 V2_Normalize(V2 a)
 }
 
 // ---
+// Range
+// ---
+typedef union
+{
+    struct { float min, max; };
+    float E[2];
+} RngF; // Range float
+
+static bool RngF_Overlaps(RngF a, RngF b)
+{
+    Assert(a.min <= a.max);
+    Assert(b.min <= b.max);
+    return !(a.max <= b.min || b.max <= a.min);
+}
+
+typedef struct
+{
+    RngF arr[4];
+} Arr4RngF; // Array 4 of range float
+
+static bool Arr4RngF_Overlaps(Arr4RngF a, Arr4RngF b)
+{
+    bool overlaps = true;
+    ForArray(i, a.arr)
+    {
+        overlaps &= RngF_Overlaps(a.arr[i], b.arr[i]);
+    }
+    return overlaps;
+}
+
+// ---
 // Color
 // ---
 typedef union
