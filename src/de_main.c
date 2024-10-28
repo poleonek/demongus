@@ -17,6 +17,12 @@ static void Game_Iterate(AppState *app)
     {
         Object *obj = Object_Get(app, app->special_wall);
         obj->rotation += app->dt;
+
+        float period = 3.14f/2.f;
+        while (obj->rotation > period)
+        {
+            obj->rotation -= period;
+        }
     }
 
     // player input
@@ -66,7 +72,61 @@ static void Game_Iterate(AppState *app)
         }
     }
 
+    // update vertices and normals
+    {
+        ForU32(obj_id, app->object_count)
+        {
+            Object *obj = app->object_pool + obj_id;
+
+            float rotation = obj->rotation; // @todo turns -> radians
+            float s = SinF(rotation);
+            float c = CosF(rotation);
+
+            obj->normals[0] = (V2){ c,  s}; // RIGHT
+            obj->normals[1] = (V2){-s,  c}; // TOP
+            obj->normals[2] = (V2){-c, -s}; // LEFT
+            obj->normals[3] = (V2){ s, -c}; // BOTTOM
+
+            V2 half = V2_Scale(obj->dim, 0.5f);
+            obj->vertices[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
+            obj->vertices[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
+            obj->vertices[2] = (V2){-half.x,  half.y}; // TOP-LEFT
+            obj->vertices[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
+
+            ForArray(i, obj->vertices)
+            {
+                V2 vert = obj->vertices[i];
+
+                obj->vertices[i].x = vert.x * c - vert.y * s;
+                obj->vertices[i].y = vert.x * s + vert.y * c;
+
+                obj->vertices[i].x += obj->p.x;
+                obj->vertices[i].y += obj->p.y;
+            }
+        }
+    }
+
     // movement
+    if (0)
+    {
+        // @todo sat algorithm
+        ForU32(obj_id, app->object_count)
+        {
+            Object *obj = app->object_pool + obj_id;
+            if (!(obj->flags & ObjectFlag_Move)) continue;
+            if (!obj->dp.x && !obj->dp.y) continue;
+
+            ForU32(obstacle_id, app->object_count)
+            {
+                Object *obstacle = app->object_pool + obstacle_id;
+                if (!(obstacle->flags & ObjectFlag_Collide)) continue;
+                if (obj == obstacle) continue;
+
+            }
+        }
+
+    }
+    else
     {
         float wall_margin = 0.001f;
         // @speed(mg) This could be speed up in multiple ways.
@@ -159,7 +219,7 @@ static void Game_Iterate(AppState *app)
         app->camera_p = player->p;
     }
 
-    // display objects
+    // draw objects
     {
         float camera_scale = 1.f;
         {
@@ -173,68 +233,41 @@ static void Game_Iterate(AppState *app)
             Object *obj = app->object_pool + i;
             V2 half_dim = V2_Scale(obj->dim, 0.5f);
 
-            // @todo(mg) display rotated rectangles! Calculate rotated rect points and use SDL_RenderGeometry? Idk
 
-            float x0 = -half_dim.x;
-            float y0 = -half_dim.y;
-            float x1 = half_dim.x;
-            float y1 = half_dim.y;
+            V2 verts[4];
+            static_assert(sizeof(verts) == sizeof(obj->vertices));
+            memcpy(verts, obj->vertices, sizeof(obj->vertices));
 
-            V2 points[4] =
+            ForArray(i, verts)
             {
-                (V2){x0, y0},
-                (V2){x1, y0},
-                (V2){x0, y1},
-                (V2){x1, y1},
-            };
-
-            float s = SinF(obj->rotation);
-            float c = CosF(obj->rotation);
-
-            ForArray(point_index, points)
-            {
-                V2 *point = points + point_index;
-
-                // rotate
-                float new_x = point->x * c - point->y * s;
-                float new_y = point->x * s + point->y * c;
-
-                // move to obj origin
-                new_x += obj->p.x;
-                new_y += obj->p.y;
-
                 // apply camera transform
-                new_x -= app->camera_p.x;
-                new_y -= app->camera_p.y;
+                verts[i].x -= app->camera_p.x;
+                verts[i].y -= app->camera_p.y;
 
-                new_x *= camera_scale;
-                new_y *= camera_scale;
+                verts[i].x *= camera_scale;
+                verts[i].y *= camera_scale;
 
-                new_x += window_transform.x;
-                new_y += window_transform.y;
+                verts[i].x += window_transform.x;
+                verts[i].y += window_transform.y;
 
                 // fix y axis direction to +Y up (SDL uses +Y down, -Y up)
-                new_y = app->height - new_y;
-
-                // store
-                *point = (V2){new_x, new_y};
+                verts[i].y = app->height - verts[i].y;
             }
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
-            SDL_Vertex vert[4];
-            SDL_zerop(vert);
+            SDL_Vertex sdl_verts[4];
+            SDL_zerop(sdl_verts);
 
-            static_assert(ArrayCount(points) == ArrayCount(vert));
-            ForArray(i, points)
+            static_assert(ArrayCount(verts) == ArrayCount(sdl_verts));
+            ForArray(i, sdl_verts)
             {
-                V2 *point = points + i;
-                vert[i].position = V2_To_SDL_FPoint(*point);
-                vert[i].color = fcolor;
+                sdl_verts[i].position = V2_To_SDL_FPoint(verts[i]);
+                sdl_verts[i].color = fcolor;
             }
 
             int indices[] = { 0, 1, 2, 2, 3, 1 };
             SDL_RenderGeometry(app->renderer, 0,
-                               vert, ArrayCount(vert),
+                               sdl_verts, ArrayCount(sdl_verts),
                                indices, ArrayCount(indices));
         }
     }

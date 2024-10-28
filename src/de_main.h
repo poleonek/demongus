@@ -23,6 +23,10 @@ typedef struct
     V2 dim;
     float rotation; // in turns; 1.0 == 360 degrees
     ColorF color;
+
+    // calculated after applying rotation
+    V2 normals[4]; // right, top, left, bottom
+    V2 vertices[4]; // bottom-left, bottom-right, top-left, top-right
 } Object;
 
 typedef struct
