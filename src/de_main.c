@@ -3,37 +3,32 @@
 //           and it should be isolated from platform specific
 //           stuff when it's reasonable.
 //
-static void Game_UpdateObjectVerticesAndNormals(AppState *app)
+static void Object_UpdateVerticesAndNormals(Object *obj)
 {
-    ForU32(obj_id, app->object_count)
+    float rotation = obj->rotation; // @todo turns -> radians
+    float s = SinF(rotation);
+    float c = CosF(rotation);
+
+    obj->normals[0] = (V2){ c,  s}; // RIGHT
+    obj->normals[1] = (V2){-s,  c}; // TOP
+    obj->normals[2] = (V2){-c, -s}; // LEFT
+    obj->normals[3] = (V2){ s, -c}; // BOTTOM
+
+    V2 half = V2_Scale(obj->dim, 0.5f);
+    obj->vertices[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
+    obj->vertices[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
+    obj->vertices[2] = (V2){-half.x,  half.y}; // TOP-LEFT
+    obj->vertices[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
+
+    ForArray(i, obj->vertices)
     {
-        Object *obj = app->object_pool + obj_id;
+        V2 vert = obj->vertices[i];
 
-        float rotation = obj->rotation; // @todo turns -> radians
-        float s = SinF(rotation);
-        float c = CosF(rotation);
+        obj->vertices[i].x = vert.x * c - vert.y * s;
+        obj->vertices[i].y = vert.x * s + vert.y * c;
 
-        obj->normals[0] = (V2){ c,  s}; // RIGHT
-        obj->normals[1] = (V2){-s,  c}; // TOP
-        obj->normals[2] = (V2){-c, -s}; // LEFT
-        obj->normals[3] = (V2){ s, -c}; // BOTTOM
-
-        V2 half = V2_Scale(obj->dim, 0.5f);
-        obj->vertices[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
-        obj->vertices[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
-        obj->vertices[2] = (V2){-half.x,  half.y}; // TOP-LEFT
-        obj->vertices[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
-
-        ForArray(i, obj->vertices)
-        {
-            V2 vert = obj->vertices[i];
-
-            obj->vertices[i].x = vert.x * c - vert.y * s;
-            obj->vertices[i].y = vert.x * s + vert.y * c;
-
-            obj->vertices[i].x += obj->p.x;
-            obj->vertices[i].y += obj->p.y;
-        }
+        obj->vertices[i].x += obj->p.x;
+        obj->vertices[i].y += obj->p.y;
     }
 }
 
@@ -96,7 +91,11 @@ static void Game_AdvanceSimulation(AppState *app)
     }
 
     // update vertices and normals
-    Game_UpdateObjectVerticesAndNormals(app);
+    ForU32(obj_id, app->object_count)
+    {
+        Object *obj = app->object_pool + obj_id;
+        Object_UpdateVerticesAndNormals(obj);
+    }
 
     // movement
     if (1)
@@ -114,6 +113,7 @@ static void Game_AdvanceSimulation(AppState *app)
             if (!(obj->flags & ObjectFlag_Move)) continue;
 
             obj->p = V2_Add(obj->p, obj->dp);
+            Object_UpdateVerticesAndNormals(obj);
 
             Arr4RngF minmax_obj_obj = Object_NormalsInnerVertices(obj, obj);
 
@@ -222,10 +222,6 @@ static void Game_AdvanceSimulation(AppState *app)
             obj->p = V2_Add(obj->p, obj->dp);
         }
     }
-
-    // update vertices again after moving the player
-    // @todo(mg) update vertices only for moved objects?
-    Game_UpdateObjectVerticesAndNormals(app);
 
     // move camera
     {
@@ -342,7 +338,7 @@ static void Game_Init(AppState *app)
 {
     // init debug options
     {
-        app->debug.fixed_dt = 0.2f;
+        app->debug.fixed_dt = 0.17f;
         app->debug.pause_on_every_frame = true;
     }
 
