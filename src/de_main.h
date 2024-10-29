@@ -60,4 +60,11 @@ typedef struct
     // how much of the world is visible in the camera
     // float camera_scale = Max(width, height) / camera_range
     float camera_range;
+
+    // debug
+    struct {
+        float fixed_dt;
+        bool pause_on_every_frame;
+        bool paused_frame;
+    } debug;
 } AppState;

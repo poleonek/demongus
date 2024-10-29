@@ -38,12 +38,15 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     SDL_RenderClear(app->renderer);
     Game_Iterate(app);
     SDL_RenderPresent(app->renderer);
+
+    app->debug.paused_frame = true;
+
     return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 {
-    AppState* state = (AppState*)appstate;
+    AppState* app = (AppState*)appstate;
 
     switch (event->type)
     {
@@ -58,6 +61,12 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
             if (event->key.key == SDLK_ESCAPE)
             {
                 return SDL_APP_SUCCESS; // useful in development
+            }
+
+            if (event->type == SDL_EVENT_KEY_DOWN &&
+                event->key.key == SDLK_P)
+            {
+                app->debug.paused_frame = false;
             }
         } break;
 
@@ -88,7 +97,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     state->height = WINDOW_HEIGHT;
     Game_Init(state);
 
-    if (!SDL_CreateWindowAndRenderer("demongus", state->width, state->height, SDL_WINDOW_RESIZABLE, &state->window, &state->renderer))
+    if (!SDL_CreateWindowAndRenderer("demongus", state->width, state->height,
+                                     SDL_WINDOW_RESIZABLE, &state->window, &state->renderer))
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to create window/renderer", SDL_GetError(), NULL);
         return SDL_APP_FAILURE;

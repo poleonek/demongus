@@ -15,7 +15,7 @@ static float SqrtF(float a)
 }
 static float AbsF(float a)
 {
-    return SDL_absf(a);
+    return (a < 0.f ? -a : a);
 }
 static float SignF(float a)
 {

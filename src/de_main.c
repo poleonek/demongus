@@ -3,16 +3,42 @@
 //           and it should be isolated from platform specific
 //           stuff when it's reasonable.
 //
-static void Game_Iterate(AppState *app)
+static void Game_UpdateObjectVerticesAndNormals(AppState *app)
 {
+    ForU32(obj_id, app->object_count)
     {
-        Uint64 new_frame_time = SDL_GetTicks();
-        Uint64 delta_time = new_frame_time - app->frame_time;
-        app->frame_time = new_frame_time;
-        app->dt = delta_time * (0.001f);
-        app->dt = Min(app->dt, 1.f); // clamp dt to 1s
-    }
+        Object *obj = app->object_pool + obj_id;
 
+        float rotation = obj->rotation; // @todo turns -> radians
+        float s = SinF(rotation);
+        float c = CosF(rotation);
+
+        obj->normals[0] = (V2){ c,  s}; // RIGHT
+        obj->normals[1] = (V2){-s,  c}; // TOP
+        obj->normals[2] = (V2){-c, -s}; // LEFT
+        obj->normals[3] = (V2){ s, -c}; // BOTTOM
+
+        V2 half = V2_Scale(obj->dim, 0.5f);
+        obj->vertices[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
+        obj->vertices[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
+        obj->vertices[2] = (V2){-half.x,  half.y}; // TOP-LEFT
+        obj->vertices[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
+
+        ForArray(i, obj->vertices)
+        {
+            V2 vert = obj->vertices[i];
+
+            obj->vertices[i].x = vert.x * c - vert.y * s;
+            obj->vertices[i].y = vert.x * s + vert.y * c;
+
+            obj->vertices[i].x += obj->p.x;
+            obj->vertices[i].y += obj->p.y;
+        }
+    }
+}
+
+static void Game_AdvanceSimulation(AppState *app)
+{
     // animate special wall
     {
         Object *obj = Object_Get(app, app->special_wall);
@@ -50,18 +76,15 @@ static void Game_Iterate(AppState *app)
 
         Object *player = Object_Get(app, player_id);
 
-        bool ice_skating_dlc = (player_id_index == 0);
+        bool ice_skating_dlc = (player_id_index == 1);
         if (ice_skating_dlc)
         {
-            float player_speed = 0.01f * app->dt;
+            // @todo(mg): this is bad, we a need fixed timestep
+            float player_speed = 0.005f * app->dt;
             V2 player_ddp = V2_Scale(dir, player_speed);
             player->dp = V2_Add(player->dp, player_ddp);
 
-            // pro skater turns
-            //if (dir.x && SignF(dir.x) != SignF(player->dp.x)) player->dp.x *= -0.9f;
-            //if (dir.y && SignF(dir.y) != SignF(player->dp.y)) player->dp.y *= -0.9f;
-
-            float drag = -15.f * app->dt;
+            float drag = -0.95f * app->dt;
             V2 player_drag = V2_Scale(player->dp, drag);
             player->dp = V2_Add(player->dp, player_drag);
         }
@@ -73,38 +96,7 @@ static void Game_Iterate(AppState *app)
     }
 
     // update vertices and normals
-    {
-        ForU32(obj_id, app->object_count)
-        {
-            Object *obj = app->object_pool + obj_id;
-
-            float rotation = obj->rotation; // @todo turns -> radians
-            float s = SinF(rotation);
-            float c = CosF(rotation);
-
-            obj->normals[0] = (V2){ c,  s}; // RIGHT
-            obj->normals[1] = (V2){-s,  c}; // TOP
-            obj->normals[2] = (V2){-c, -s}; // LEFT
-            obj->normals[3] = (V2){ s, -c}; // BOTTOM
-
-            V2 half = V2_Scale(obj->dim, 0.5f);
-            obj->vertices[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
-            obj->vertices[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
-            obj->vertices[2] = (V2){-half.x,  half.y}; // TOP-LEFT
-            obj->vertices[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
-
-            ForArray(i, obj->vertices)
-            {
-                V2 vert = obj->vertices[i];
-
-                obj->vertices[i].x = vert.x * c - vert.y * s;
-                obj->vertices[i].y = vert.x * s + vert.y * c;
-
-                obj->vertices[i].x += obj->p.x;
-                obj->vertices[i].y += obj->p.y;
-            }
-        }
-    }
+    Game_UpdateObjectVerticesAndNormals(app);
 
     // movement
     if (1)
@@ -231,12 +223,19 @@ static void Game_Iterate(AppState *app)
         }
     }
 
+    // update vertices again after moving the player
+    // @todo(mg) update vertices only for moved objects?
+    Game_UpdateObjectVerticesAndNormals(app);
+
     // move camera
     {
         Object *player = Object_Get(app, app->player_ids[0]);
         app->camera_p = player->p;
     }
+}
 
+static void Game_IssueDrawCommands(AppState *app)
+{
     // draw objects
     {
         float camera_scale = 1.f;
@@ -316,8 +315,37 @@ static void Game_Iterate(AppState *app)
     }
 }
 
+static void Game_Iterate(AppState *app)
+{
+    {
+        Uint64 new_frame_time = SDL_GetTicks();
+        Uint64 delta_time = new_frame_time - app->frame_time;
+        app->frame_time = new_frame_time;
+        app->dt = delta_time * (0.001f);
+        app->dt = Min(app->dt, 1.f); // clamp dt to 1s
+
+        if (app->debug.fixed_dt)
+        {
+            app->dt = app->debug.fixed_dt;
+        }
+    }
+
+    bool run_simulation = (!app->debug.pause_on_every_frame || !app->debug.paused_frame);
+    if (run_simulation)
+    {
+        Game_AdvanceSimulation(app);
+    }
+    Game_IssueDrawCommands(app);
+}
+
 static void Game_Init(AppState *app)
 {
+    // init debug options
+    {
+        app->debug.fixed_dt = 0.2f;
+        app->debug.pause_on_every_frame = true;
+    }
+
     app->frame_time = SDL_GetTicks();
     app->object_count += 1; // reserve object under index 0 as special 'nil' value
     app->camera_range = 20;

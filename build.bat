@@ -18,16 +18,17 @@ if "%asan%"=="1"      set auto_compile_flags=%auto_compile_flags% -fsanitize=add
 
 :: --- Compile/Link Line Definitions ------------------------------------------
 set cl_common=     /I..\src\ /I..\SDL\include\ /nologo /FC /Z7 /MD
-set clang_common=  -I..\src\ -I..\SDL\include\ -fdiagnostics-absolute-paths -Wall -Wno-unused-variable
+set clang_common=  -I..\src\ -I..\SDL\include\ -fdiagnostics-absolute-paths -Wall -Wno-unused-variable -Wno-missing-braces -Wno-unused-function -Wno-microsoft-static-assert -Wno-c2x-extensions
 set cl_debug=      call cl /Od /Ob1 /DBUILD_DEBUG=1 %cl_common% %auto_compile_flags%
 set cl_release=    call cl /O2 /DBUILD_DEBUG=0 %cl_common% %auto_compile_flags%
+set cl_libs=       User32.lib Advapi32.lib Shell32.lib Gdi32.lib Version.lib OleAut32.lib Imm32.lib Ole32.lib Cfgmgr32.lib Setupapi.lib Winmm.lib ..\SDL\build\win\Debug\SDL3-static.lib
+set cl_link=       /link /SUBSYSTEM:WINDOWS /MANIFEST:EMBED /INCREMENTAL:NO /pdbaltpath:%%%%_PDB%%%% %cl_libs%
+set cl_out=        /out:
+
 set clang_debug=   call clang -g -O0 -DBUILD_DEBUG=1 %clang_common% %auto_compile_flags%
 set clang_release= call clang -g -O2 -DBUILD_DEBUG=0 %clang_common% %auto_compile_flags%
-set sdl_win_libs=  User32.lib Advapi32.lib Shell32.lib Gdi32.lib Version.lib OleAut32.lib Imm32.lib Ole32.lib Cfgmgr32.lib Setupapi.lib Winmm.lib
-set common_link=   ..\SDL\build\win\Debug\SDL3-static.lib %sdl_win_libs%
-set cl_link=       /link /SUBSYSTEM:WINDOWS /MANIFEST:EMBED /INCREMENTAL:NO /pdbaltpath:%%%%_PDB%%%% %common_link%
-set clang_link=    -fuse-ld=lld -Xlinker /SUBSYSTEM:WINDOWS -Xlinker /MANIFEST:EMBED -Xlinker /pdbaltpath:%%%%_PDB%%%% %common_link%
-set cl_out=        /out:
+set clang_libs=    -lUser32.lib -lAdvapi32.lib -lShell32.lib -lGdi32.lib -lVersion.lib -lOleAut32.lib -lImm32.lib -lOle32.lib -lCfgmgr32.lib -lSetupapi.lib -lWinmm.lib ..\SDL\build\win\Debug\SDL3-static.lib
+set clang_link=    -fuse-ld=lld -Xlinker /SUBSYSTEM:WINDOWS -Xlinker /MANIFEST:EMBED -Xlinker /pdbaltpath:%%%%_PDB%%%% %clang_libs%
 set clang_out=     -o
 
 :: --- Per-Build Settings -----------------------------------------------------
