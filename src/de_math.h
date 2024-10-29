@@ -86,11 +86,27 @@ typedef union
     float E[2];
 } RngF; // Range float
 
-static bool RngF_Overlaps(RngF a, RngF b)
+static bool RngF_Separated(RngF a, RngF b)
 {
     Assert(a.min <= a.max);
     Assert(b.min <= b.max);
-    return !(a.max <= b.min || b.max <= a.min);
+    return (a.max <= b.min || b.max <= a.min);
+}
+
+static float RngF_Separation(RngF a, RngF b)
+{
+    if (a.max <= b.min)
+    {
+        return b.min - a.max;
+    }
+    else if (b.max <= a.min)
+    {
+        return a.min - b.max;
+    }
+    else
+    {
+        return 0.f;
+    }
 }
 
 typedef struct
@@ -98,14 +114,14 @@ typedef struct
     RngF arr[4];
 } Arr4RngF; // Array 4 of range float
 
-static bool Arr4RngF_Overlaps(Arr4RngF a, Arr4RngF b)
+static bool Arr4RngF_Separated(Arr4RngF a, Arr4RngF b)
 {
-    bool overlaps = true;
+    bool separated = false;
     ForArray(i, a.arr)
     {
-        overlaps &= RngF_Overlaps(a.arr[i], b.arr[i]);
+        separated |= RngF_Separated(a.arr[i], b.arr[i]);
     }
-    return overlaps;
+    return separated;
 }
 
 // ---

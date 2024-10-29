@@ -91,6 +91,7 @@ static void Game_AdvanceSimulation(AppState *app)
     }
 
     // update vertices and normals
+    // @todo @speed we dont need to do this if we ensure vert/normal initialization
     ForU32(obj_id, app->object_count)
     {
         Object *obj = app->object_pool + obj_id;
@@ -124,14 +125,14 @@ static void Game_AdvanceSimulation(AppState *app)
                 if (obj == obstacle) continue;
 
                 Arr4RngF minmax_obj_obstacle = Object_NormalsInnerVertices(obj, obstacle);
-                bool overlaps = Arr4RngF_Overlaps(minmax_obj_obj, minmax_obj_obstacle);
+                bool separated = Arr4RngF_Separated(minmax_obj_obj, minmax_obj_obstacle);
 
                 Arr4RngF minmax_obstacle_obstacle = Object_NormalsInnerVertices(obstacle, obstacle);
                 Arr4RngF minmax_obstacle_obj = Object_NormalsInnerVertices(obstacle, obj);
-                overlaps &= Arr4RngF_Overlaps(minmax_obstacle_obstacle, minmax_obstacle_obj);
+                separated |= Arr4RngF_Separated(minmax_obstacle_obstacle, minmax_obstacle_obj);
 
-                obj->has_collision |= overlaps;
-                obstacle->has_collision |= overlaps;
+                obj->has_collision |= !separated;
+                obstacle->has_collision |= !separated;
             }
         }
 
@@ -220,6 +221,7 @@ static void Game_AdvanceSimulation(AppState *app)
             }
 
             obj->p = V2_Add(obj->p, obj->dp);
+            Object_UpdateVerticesAndNormals(obj);
         }
     }
 
