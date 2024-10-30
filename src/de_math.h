@@ -80,20 +80,19 @@ static V2 V2_Normalize(V2 a)
 // ---
 // Range
 // ---
-typedef union
+typedef struct
 {
-    struct { float min, max; };
-    float E[2];
-} RngF; // Range float
+    float min, max;
+    V2 normal;
+} SatMinMax;
 
-static bool RngF_Separated(RngF a, RngF b)
+typedef struct
 {
-    Assert(a.min <= a.max);
-    Assert(b.min <= b.max);
-    return (a.max <= b.min || b.max <= a.min);
-}
+    SatMinMax arr[4];
+} SatMinMaxBundle;
 
-static float RngF_SeparationDistance(RngF a, RngF b)
+
+static float SatMinMax_SeparationDistance(SatMinMax a, SatMinMax b)
 {
     float d0 = b.min - a.max;
     float d1 = a.min - b.max;
@@ -102,32 +101,9 @@ static float RngF_SeparationDistance(RngF a, RngF b)
 
 typedef struct
 {
-    RngF arr[4];
-} Arr4RngF; // Array 4 of range float
-
-static bool Arr4RngF_Separated(Arr4RngF a, Arr4RngF b)
-{
-    bool separated = false;
-    ForArray(i, a.arr)
-    {
-        separated |= RngF_Separated(a.arr[i], b.arr[i]);
-    }
-    return separated;
-}
-
-static float Arr4RngF_MinSeparationDistance(Arr4RngF a, Arr4RngF b)
-{
-    float max_separation_distance = -FLT_MAX;
-    ForArray(i, a.arr)
-    {
-        float d = RngF_SeparationDistance(a.arr[i], b.arr[i]);
-        if (d > max_separation_distance)
-        {
-            max_separation_distance = d;
-        }
-    }
-    return max_separation_distance;
-}
+    float dist;
+    V2 normal;
+} SatMinSeparationResult;
 
 // ---
 // Color

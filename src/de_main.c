@@ -116,10 +116,13 @@ static void Game_AdvanceSimulation(AppState *app)
             obj->p = V2_Add(obj->p, obj->dp);
             Object_UpdateVerticesAndNormals(obj);
 
-            Arr4RngF minmax_obj_obj = Object_NormalsInnerVertices(obj, obj);
+            SatMinMaxBundle minmax_obj_obj = Object_NormalsInnerVertices(obj, obj);
 
             Uint32 closest_obstacle_id = 0;
-            float closest_obstacle_dist = FLT_MAX;
+
+            float closest_obstacle_separation_dist = FLT_MAX;
+            //float closest_obstacle_displacement_dist = 0;
+            V2 closest_obstacle_displacement_normal = {0};
 
             ForU32(obstacle_id, app->object_count)
             {
@@ -127,29 +130,63 @@ static void Game_AdvanceSimulation(AppState *app)
                 if (!(obstacle->flags & ObjectFlag_Collide)) continue;
                 if (obj == obstacle) continue;
 
-                float separation_dist = 0.f;
+                SatMinMaxBundle minmax_obj_obstacle = Object_NormalsInnerVertices(obj, obstacle);
+                //
+                SatMinMaxBundle minmax_obstacle_obstacle = Object_NormalsInnerVertices(obstacle, obstacle);
+                SatMinMaxBundle minmax_obstacle_obj = Object_NormalsInnerVertices(obstacle, obj);
+
+                float biggest_dist = -FLT_MAX;
+                //float displacement_dist = FLT_MAX;
+                V2 displacement_normal = {0};
+
+                ForU32(pair, 2)
                 {
-                    Arr4RngF minmax_obj_obstacle = Object_NormalsInnerVertices(obj, obstacle);
-                    float separation_dist0 = Arr4RngF_MinSeparationDistance(minmax_obj_obj, minmax_obj_obstacle);
+                    SatMinMaxBundle *a = (pair == 0 ? &minmax_obj_obj : &minmax_obstacle_obstacle);
+                    SatMinMaxBundle *b = (pair == 0 ? &minmax_obj_obstacle : &minmax_obstacle_obj);
 
-                    Arr4RngF minmax_obstacle_obstacle = Object_NormalsInnerVertices(obstacle, obstacle);
-                    Arr4RngF minmax_obstacle_obj = Object_NormalsInnerVertices(obstacle, obj);
-                    float separation_dist1 = Arr4RngF_MinSeparationDistance(minmax_obstacle_obstacle, minmax_obstacle_obj);
-
-                    separation_dist = Max(separation_dist0, separation_dist1);
+                    ForArray(i, a->arr)
+                    {
+                        float d = SatMinMax_SeparationDistance(a->arr[i], b->arr[i]);
+                        if (d > biggest_dist)
+                        {
+                            biggest_dist = d;
+                            displacement_normal = a->arr[i].normal;
+                        }
+                    }
                 }
 
-                if (closest_obstacle_dist > separation_dist)
+                if (closest_obstacle_separation_dist > biggest_dist)
                 {
-                    closest_obstacle_dist = separation_dist;
+                    closest_obstacle_separation_dist = biggest_dist;
+                    //closest_obstacle_displacement_dist = displacement_dist;
+                    closest_obstacle_displacement_normal = displacement_normal;
                     closest_obstacle_id = obstacle_id;
                 }
 
-                //obj->has_collision |= (separation_dist < 0.f);
-                //obstacle->has_collision |= (separation_dist < 0.f);
+                obj->has_collision |= (biggest_dist < 0.f);
+                obstacle->has_collision |= (biggest_dist < 0.f);
             }
 
-            Object_Get(app, closest_obstacle_id)->has_collision = true;
+            int a = 1;
+            a += 1;
+            a += 1;
+            a += 1;
+
+#if 1
+            if (closest_obstacle_separation_dist < 0.f)
+            {
+                Object *closest_obstacle = Object_Get(app, closest_obstacle_id);
+                //V2 move_out_dir = V2_Sub(obj->p, closest_obstacle->p);
+                //move_out_dir = V2_Normalize(move_out_dir);
+                V2 move_out_dir = closest_obstacle_displacement_normal;
+
+                V2 move_out = V2_Scale(move_out_dir, closest_obstacle_separation_dist);
+                obj->p = V2_Add(obj->p, move_out);
+                Object_UpdateVerticesAndNormals(obj);
+            }
+#endif
+
+            //Object_Get(app, closest_obstacle_id)->has_collision = true;
         }
 
     }
@@ -356,7 +393,7 @@ static void Game_Init(AppState *app)
 {
     // init debug options
     {
-        app->debug.fixed_dt = 0.17f;
+        app->debug.fixed_dt = 0.1f;
         app->debug.pause_on_every_frame = true;
     }
 
@@ -371,6 +408,7 @@ static void Game_Init(AppState *app)
         player->dim.x = 0.5f;
         player->dim.y = 0.7f;
         player->color = ColorF_RGB(.89f, .02f, 0);
+        player->rotation = 0.11f;
         app->player_ids[0] = Object_IdFromPointer(app, player);
     }
     // add player2
