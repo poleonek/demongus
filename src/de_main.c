@@ -46,12 +46,12 @@ static void Game_AdvanceSimulation(AppState *app)
         bool ice_skating_dlc = (player_id_index == 1);
         if (ice_skating_dlc)
         {
-            // @todo(mg): this is bad, we a need fixed timestep
+            // @todo(mg): this is bad, we need a fixed timestep
             float player_speed = 0.005f * app->dt;
             V2 player_ddp = V2_Scale(dir, player_speed);
             player->dp = V2_Add(player->dp, player_ddp);
 
-            float drag = -0.95f * app->dt;
+            float drag = -0.999f * app->dt;
             V2 player_drag = V2_Scale(player->dp, drag);
             player->dp = V2_Add(player->dp, player_drag);
         }
@@ -123,7 +123,7 @@ static void Game_AdvanceSimulation(AppState *app)
                         if (d > 0.f)
                         {
                             // @info(mg) We can exit early from checking this
-                            //     obstacle since we found an axist that has
+                            //     obstacle since we found an axis that has
                             //     a separation between obj and obstacle.
                             goto skip_this_obstacle;
                         }
@@ -301,8 +301,8 @@ static void Game_Init(AppState *app)
 {
     // init debug options
     {
-        app->debug.fixed_dt = 0.1f;
-        app->debug.pause_on_every_frame = true;
+        //app->debug.fixed_dt = 0.1f;
+        //app->debug.pause_on_every_frame = true;
     }
 
     app->frame_time = SDL_GetTicks();
@@ -316,7 +316,7 @@ static void Game_Init(AppState *app)
         player->dim.x = 0.5f;
         player->dim.y = 0.7f;
         player->color = ColorF_RGB(.89f, .02f, 0);
-        player->rotation = 0.11f;
+        player->rotation = 0.3f;
         app->player_ids[0] = Object_IdFromPointer(app, player);
     }
     // add player2
