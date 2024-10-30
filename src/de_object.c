@@ -43,23 +43,28 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
     return obj;
 }
 
-static SatMinMaxBundle Object_NormalsInnerVertices(Object *obj_normals, Object *obj_verts)
+typedef struct
 {
-    SatMinMaxBundle result;
+    RngF arr[4];
+} NormalsInnerVerticesResult;
+
+static NormalsInnerVerticesResult Object_NormalsInnerVertices(Object *obj_normals, Object *obj_verts)
+{
+    NormalsInnerVerticesResult result;
     static_assert(ArrayCount(result.arr) == ArrayCount(obj_normals->normals));
 
     ForArray(normal_index, obj_normals->normals)
     {
-        SatMinMax *sat = result.arr + normal_index;
+        RngF *sat = result.arr + normal_index;
         sat->min = FLT_MAX;
         sat->max = -FLT_MAX;
-        sat->normal = obj_normals->normals[normal_index];
+        V2 normal = obj_normals->normals[normal_index];
 
         ForArray(vert_index, obj_verts->vertices)
         {
             V2 vert = obj_verts->vertices[vert_index];
 
-            float inner = V2_Inner(sat->normal, vert);
+            float inner = V2_Inner(normal, vert);
             sat->min = Min(inner, sat->min);
             sat->max = Max(inner, sat->max);
         }

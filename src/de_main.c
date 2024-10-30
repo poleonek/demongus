@@ -99,198 +99,123 @@ static void Game_AdvanceSimulation(AppState *app)
     }
 
     // movement
-    if (1)
+    ForU32(obj_id, app->object_count)
     {
-        ForU32(obj_id, app->object_count)
-        {
-            Object *obj = app->object_pool + obj_id;
-            obj->has_collision = false;
-        }
-
-        // @todo sat algorithm
-        ForU32(obj_id, app->object_count)
-        {
-            Object *obj = app->object_pool + obj_id;
-            if (!(obj->flags & ObjectFlag_Move)) continue;
-
-            obj->p = V2_Add(obj->p, obj->dp);
-            Object_UpdateVerticesAndNormals(obj);
-
-            ForU32(collision_iteration, 5) // support up to 5 overlapping wall collisions
-            {
-                SatMinMaxBundle minmax_obj_obj = Object_NormalsInnerVertices(obj, obj);
-
-                Uint32 closest_obstacle_id = 0;
-                float closest_obstacle_separation_dist = FLT_MAX;
-                V2 closest_obstacle_displacement_normal = {0};
-
-                ForU32(obstacle_id, app->object_count)
-                {
-                    Object *obstacle = app->object_pool + obstacle_id;
-                    if (!(obstacle->flags & ObjectFlag_Collide)) continue;
-                    if (obj == obstacle) continue;
-
-                    SatMinMaxBundle minmax_obj_obstacle = Object_NormalsInnerVertices(obj, obstacle);
-                    //
-                    SatMinMaxBundle minmax_obstacle_obstacle = Object_NormalsInnerVertices(obstacle, obstacle);
-                    SatMinMaxBundle minmax_obstacle_obj = Object_NormalsInnerVertices(obstacle, obj);
-
-                    float biggest_dist = -FLT_MAX;
-                    //float displacement_dist = FLT_MAX;
-                    V2 displacement_normal = {0};
-
-                    ForU32(pair, 2)
-                    {
-                        SatMinMaxBundle *a = (pair == 0 ? &minmax_obj_obj : &minmax_obstacle_obstacle);
-                        SatMinMaxBundle *b = (pair == 0 ? &minmax_obj_obstacle : &minmax_obstacle_obj);
-
-                        ForArray(i, a->arr)
-                        {
-                            float d = SatMinMax_SeparationDistance(a->arr[i], b->arr[i]);
-                            if (d > biggest_dist)
-                            {
-                                biggest_dist = d;
-                                displacement_normal = a->arr[i].normal;
-                            }
-                            else if (d == biggest_dist)
-                            {
-                                // Tie break for walls that are parallel (like in rectangles)
-                                // I have a strong suspicion that this tie break could be avoided
-                                //     ~mg 2024-10-30
-                                V2 obj_dir = V2_Sub(obj->p, obstacle->p);
-                                float current_inner = V2_Inner(obj_dir, displacement_normal);
-                                float new_inner = V2_Inner(obj_dir, a->arr[i].normal);
-                                if (new_inner > current_inner)
-                                {
-                                    displacement_normal = a->arr[i].normal;
-                                }
-                            }
-                        }
-                    }
-
-                    if (closest_obstacle_separation_dist > biggest_dist)
-                    {
-                        closest_obstacle_separation_dist = biggest_dist;
-                        //closest_obstacle_displacement_dist = displacement_dist;
-                        closest_obstacle_displacement_normal = displacement_normal;
-                        closest_obstacle_id = obstacle_id;
-                    }
-
-                    obj->has_collision |= (biggest_dist < 0.f);
-                    obstacle->has_collision |= (biggest_dist < 0.f);
-                }
-
-                if (closest_obstacle_separation_dist < 0.f)
-                {
-                    Object *closest_obstacle = Object_Get(app, closest_obstacle_id);
-                    V2 move_out_dir = closest_obstacle_displacement_normal;
-                    float move_out_magnitude = -closest_obstacle_separation_dist;
-
-                    V2 move_out = V2_Scale(move_out_dir, move_out_magnitude);
-                    obj->p = V2_Add(obj->p, move_out);
-
-                    // remove all velocity on collision axis
-                    // we might want to do something different here!
-                    if (move_out.x) obj->dp.x = 0;
-                    if (move_out.y) obj->dp.y = 0;
-
-                    Object_UpdateVerticesAndNormals(obj);
-                }
-                else
-                {
-                    // we don't need to iterate collisions anymore
-                    break;
-                }
-            } // collision_iteration
-        } // obj_id
+        Object *obj = app->object_pool + obj_id;
+        obj->has_collision = false;
     }
-    else
+
+    // @todo sat algorithm
+    ForU32(obj_id, app->object_count)
     {
-        float wall_margin = 0.001f;
-        // @speed(mg) This could be speed up in multiple ways.
-        //            We could spatially partition the world into chunks
-        //            to avoid n^2 scan through all possible world objects.
-        //            We just don't care about this for now.
-        ForU32(obj_id, app->object_count)
+        Object *obj = app->object_pool + obj_id;
+        if (!(obj->flags & ObjectFlag_Move)) continue;
+
+        obj->p = V2_Add(obj->p, obj->dp);
+        Object_UpdateVerticesAndNormals(obj);
+
+        ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
-            Object *obj = app->object_pool + obj_id;
-            if (!(obj->flags & ObjectFlag_Move)) continue;
-            if (!obj->dp.x && !obj->dp.y) continue;
+            NormalsInnerVerticesResult minmax_obj_obj = Object_NormalsInnerVertices(obj, obj);
 
-            Uint32 iteration_count = 2;
-            ForU32(iteration_index, iteration_count)
+            Uint32 closest_obstacle_id = 0;
+            float closest_obstacle_separation_dist = FLT_MAX;
+            V2 closest_obstacle_displacement_normal = {0};
+
+            ForU32(obstacle_id, app->object_count)
             {
-                V2 obj_new_p = V2_Add(obj->p, obj->dp);
+                Object *obstacle = app->object_pool + obstacle_id;
+                if (!(obstacle->flags & ObjectFlag_Collide)) continue;
+                if (obj == obstacle) continue;
 
-                struct {
-                    Axis2 axis;
-                    float t;
-                    float near_wall_main;
-                } closest_collision = {.t = FLT_MAX};
+                NormalsInnerVerticesResult minmax_obj_obstacle = Object_NormalsInnerVertices(obj, obstacle);
+                //
+                NormalsInnerVerticesResult minmax_obstacle_obstacle = Object_NormalsInnerVertices(obstacle, obstacle);
+                NormalsInnerVerticesResult minmax_obstacle_obj = Object_NormalsInnerVertices(obstacle, obj);
 
-                ForU32(obstacle_id, app->object_count)
+                float biggest_dist = -FLT_MAX;
+                V2 displacement_normal = {0};
+
+                ForU32(pair, 2)
                 {
-                    Object *obstacle = app->object_pool + obstacle_id;
-                    if (!(obstacle->flags & ObjectFlag_Collide)) continue;
-                    if (obj == obstacle) continue;
-
-                    V2 minkowski_half_dim = V2_Scale(V2_Add(obj->dim, obstacle->dim), 0.5f);
-
-                    ForU32(main_axis, Axis2_COUNT)
+                    NormalsInnerVerticesResult a;
+                    NormalsInnerVerticesResult b;
+                    Object *normal_obj;
+                    if (pair == 0)
                     {
-                        Axis2 other_axis = Axis2_Other(main_axis);
+                        a = minmax_obj_obj;
+                        b = minmax_obj_obstacle;
+                        normal_obj = obj;
+                    }
+                    else
+                    {
+                        a = minmax_obstacle_obstacle;
+                        b = minmax_obstacle_obj;
+                        normal_obj = obstacle;
+                    }
 
-                        if (obj->dp.E[main_axis])
+                    ForArray(i, a.arr)
+                    {
+                        static_assert(ArrayCount(a.arr) == ArrayCount(obj->normals));
+                        V2 normal = (pair == 0 ? obj : obstacle)->normals[i];
+
+                        float d = RngF_MaxDistance(a.arr[i], b.arr[i]);
+                        if (d > biggest_dist)
                         {
-                            float near_wall_other0 = obstacle->p.E[other_axis] - minkowski_half_dim.E[other_axis];
-                            float near_wall_other1 = obstacle->p.E[other_axis] + minkowski_half_dim.E[other_axis];
-                            if (obj_new_p.E[other_axis] >= near_wall_other0 &&
-                                obj_new_p.E[other_axis] <= near_wall_other1)
+                            biggest_dist = d;
+                            displacement_normal = normal;
+                        }
+                        else if (d == biggest_dist)
+                        {
+                            // Tie break for walls that are parallel (like in rectangles)
+                            // I have a strong suspicion that this tie break could be avoided
+                            //     ~mg 2024-10-30
+                            V2 obj_dir = V2_Sub(obj->p, obstacle->p);
+                            float current_inner = V2_Inner(obj_dir, displacement_normal);
+                            float new_inner = V2_Inner(obj_dir, normal);
+                            if (new_inner > current_inner)
                             {
-                                float near_wall_main = obstacle->p.E[main_axis] -
-                                    minkowski_half_dim.E[main_axis]*SignF(obj->dp.E[main_axis]);
-
-                                float obj_wall_distance = near_wall_main - obj->p.E[main_axis];
-                                float collision_t = obj_wall_distance / obj->dp.E[main_axis];
-
-                                if (collision_t >= 0.f && collision_t < closest_collision.t)
-                                {
-                                    closest_collision.axis = main_axis;
-                                    closest_collision.t = collision_t;
-                                    closest_collision.near_wall_main = near_wall_main;
-                                }
+                                displacement_normal = normal;
                             }
                         }
                     }
                 }
 
-                // @todo(mg) make sure we handle the case where player is in the wall
-                if (closest_collision.t >= 0.f && closest_collision.t < 1.f)
+                if (closest_obstacle_separation_dist > biggest_dist)
                 {
-                    Axis2 main_axis = closest_collision.axis;
-
-                    obj_new_p.E[main_axis] = closest_collision.near_wall_main -
-                        wall_margin*SignF(obj->dp.E[main_axis]);
-
-                    obj->p.E[main_axis] = obj_new_p.E[main_axis];
-                    obj->dp.E[main_axis] = 0.f; // @todo(mg) this is not ideal, angled walls will be "sticky", we should calculate new dp vector here
-
-                    if (iteration_index + 1 == iteration_count)
-                    {
-                        // we are in the last iteration, stop all reminding movement to prevent tunneling through walls
-                        obj->dp = (V2){0};
-                    }
+                    closest_obstacle_separation_dist = biggest_dist;
+                    //closest_obstacle_displacement_dist = displacement_dist;
+                    closest_obstacle_displacement_normal = displacement_normal;
+                    closest_obstacle_id = obstacle_id;
                 }
-                else
-                {
-                    break;
-                }
+
+                obj->has_collision |= (biggest_dist < 0.f);
+                obstacle->has_collision |= (biggest_dist < 0.f);
             }
 
-            obj->p = V2_Add(obj->p, obj->dp);
-            Object_UpdateVerticesAndNormals(obj);
-        }
-    }
+            if (closest_obstacle_separation_dist < 0.f)
+            {
+                Object *closest_obstacle = Object_Get(app, closest_obstacle_id);
+                V2 move_out_dir = closest_obstacle_displacement_normal;
+                float move_out_magnitude = -closest_obstacle_separation_dist;
+
+                V2 move_out = V2_Scale(move_out_dir, move_out_magnitude);
+                obj->p = V2_Add(obj->p, move_out);
+
+                // remove all velocity on collision axis
+                // we might want to do something different here!
+                if (move_out.x) obj->dp.x = 0;
+                if (move_out.y) obj->dp.y = 0;
+
+                Object_UpdateVerticesAndNormals(obj);
+            }
+            else
+            {
+                // we don't need to iterate collisions anymore
+                break;
+            }
+        } // collision_iteration
+    } // obj_id
 
     // move camera
     {
@@ -426,7 +351,7 @@ static void Game_Init(AppState *app)
         app->player_ids[0] = Object_IdFromPointer(app, player);
     }
     // add player2
-    if (0) {
+    {
         Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
         player->p.x = 3.f;
         player->dim.x = 0.3f;

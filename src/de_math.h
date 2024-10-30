@@ -83,27 +83,14 @@ static V2 V2_Normalize(V2 a)
 typedef struct
 {
     float min, max;
-    V2 normal;
-} SatMinMax;
+} RngF; // Range float
 
-typedef struct
-{
-    SatMinMax arr[4];
-} SatMinMaxBundle;
-
-
-static float SatMinMax_SeparationDistance(SatMinMax a, SatMinMax b)
+static float RngF_MaxDistance(RngF a, RngF b)
 {
     float d0 = b.min - a.max;
     float d1 = a.min - b.max;
     return Max(d0, d1);
 }
-
-typedef struct
-{
-    float dist;
-    V2 normal;
-} SatMinSeparationResult;
 
 // ---
 // Color
