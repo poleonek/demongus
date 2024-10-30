@@ -1,12 +1,12 @@
 # demongus
-Among us clone
+A game/engine. Initially inspired by [Among Us](https://store.steampowered.com/app/945360/Among_Us/).
 
 Requires SDL3
 
-## CLONING PROJECT
-Repo uses git submodules to include SDL3.
+## CLONING THE PROJECT
+This repository uses git submodules to include SDL3.
 
-To download repo and SDL3 at the same time run:
+To download the repo and SDL3 at the same time run:
 ```bash
 git clone --recurse-submodules git@github.com:poleonek/demongus.git
 ```
@@ -40,3 +40,10 @@ cd SDL
 cmake -S . -B build\win -DSDL_SHARED=OFF -DSDL_STATIC=ON && cmake --build build\win
 cd ..
 ```
+
+# Resources
+## Collision
+The game uses SAT algorithm for collision detection.
+Two links that I found especially useful while researching how to implement it:
+- [Collision Detection with SAT (Math for Game Developers) by pikuma](https://www.youtube.com/watch?v=-EsWKT7Doww)
+- [N Tutorial A – Collision Detection and Response](https://www.metanetsoftware.com/2016/n-tutorial-a-collision-detection-and-response)
