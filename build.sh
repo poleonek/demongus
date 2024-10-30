@@ -16,12 +16,12 @@ if [ -v gcc ];       then compiler="${CC:-gcc}"; echo "[gcc compile]"; fi
 auto_compile_flags=''
 
 # --- Compile/Link Line Definitions -------------------------------------------
-clang_common='-I../src/ -I../SDL/include/ -g -fdiagnostics-absolute-paths -Wall -Wno-unused-variable'
+clang_common='-I../src/ -I../SDL/include/ -g -fdiagnostics-absolute-paths -Wall -Wno-unused-variable -std=c23'
 clang_debug="$compiler -O0 -DBUILD_DEBUG=1 ${clang_common} ${auto_compile_flags}"
 clang_release="$compiler -O2 -DBUILD_DEBUG=0 ${clang_common} ${auto_compile_flags}"
 clang_link="../SDL/build/libSDL3.a -lm"
 clang_out="-o"
-gcc_common='-I../src/ -I../SDL/include/ -g -Wall -Wno-unused-variable'
+gcc_common='-I../src/ -I../SDL/include/ -g -Wall -Wno-unused-variable -std=c23'
 gcc_debug="$compiler -O0 -DBUILD_DEBUG=1 ${gcc_common} ${auto_compile_flags}"
 gcc_release="$compiler -O2 -DBUILD_DEBUG=0 ${gcc_common} ${auto_compile_flags}"
 gcc_link="../SDL/build/libSDL3.a -lm"
