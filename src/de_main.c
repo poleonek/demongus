@@ -118,22 +118,38 @@ static void Game_AdvanceSimulation(AppState *app)
 
             Arr4RngF minmax_obj_obj = Object_NormalsInnerVertices(obj, obj);
 
+            Uint32 closest_obstacle_id = 0;
+            float closest_obstacle_dist = FLT_MAX;
+
             ForU32(obstacle_id, app->object_count)
             {
                 Object *obstacle = app->object_pool + obstacle_id;
                 if (!(obstacle->flags & ObjectFlag_Collide)) continue;
                 if (obj == obstacle) continue;
 
-                Arr4RngF minmax_obj_obstacle = Object_NormalsInnerVertices(obj, obstacle);
-                bool separated = Arr4RngF_Separated(minmax_obj_obj, minmax_obj_obstacle);
+                float separation_dist = 0.f;
+                {
+                    Arr4RngF minmax_obj_obstacle = Object_NormalsInnerVertices(obj, obstacle);
+                    float separation_dist0 = Arr4RngF_MinSeparationDistance(minmax_obj_obj, minmax_obj_obstacle);
 
-                Arr4RngF minmax_obstacle_obstacle = Object_NormalsInnerVertices(obstacle, obstacle);
-                Arr4RngF minmax_obstacle_obj = Object_NormalsInnerVertices(obstacle, obj);
-                separated |= Arr4RngF_Separated(minmax_obstacle_obstacle, minmax_obstacle_obj);
+                    Arr4RngF minmax_obstacle_obstacle = Object_NormalsInnerVertices(obstacle, obstacle);
+                    Arr4RngF minmax_obstacle_obj = Object_NormalsInnerVertices(obstacle, obj);
+                    float separation_dist1 = Arr4RngF_MinSeparationDistance(minmax_obstacle_obstacle, minmax_obstacle_obj);
 
-                obj->has_collision |= !separated;
-                obstacle->has_collision |= !separated;
+                    separation_dist = Max(separation_dist0, separation_dist1);
+                }
+
+                if (closest_obstacle_dist > separation_dist)
+                {
+                    closest_obstacle_dist = separation_dist;
+                    closest_obstacle_id = obstacle_id;
+                }
+
+                //obj->has_collision |= (separation_dist < 0.f);
+                //obstacle->has_collision |= (separation_dist < 0.f);
             }
+
+            Object_Get(app, closest_obstacle_id)->has_collision = true;
         }
 
     }
@@ -360,7 +376,7 @@ static void Game_Init(AppState *app)
     // add player2
     {
         Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
-        player->p.x = 1.f;
+        player->p.x = 3.f;
         player->dim.x = 0.3f;
         player->dim.y = 0.9f;
         player->color = ColorF_RGB(0.4f, .4f, .94f);
