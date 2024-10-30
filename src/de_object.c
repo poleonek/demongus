@@ -72,3 +72,36 @@ static NormalsInnerVerticesResult Object_NormalsInnerVertices(Object *obj_normal
 
     return result;
 }
+
+static void Object_UpdateVerticesAndNormals(Object *obj)
+{
+    // @todo This function should be called automatically?
+    //       We should add some asserts and checks to make sure
+    //       that we aren't using stale vertices & normals
+
+    float rotation = obj->rotation; // @todo turns -> radians
+    float s = SinF(rotation);
+    float c = CosF(rotation);
+
+    obj->normals[0] = (V2){ c,  s}; // RIGHT
+    obj->normals[1] = (V2){-s,  c}; // TOP
+    obj->normals[2] = (V2){-c, -s}; // LEFT
+    obj->normals[3] = (V2){ s, -c}; // BOTTOM
+
+    V2 half = V2_Scale(obj->dim, 0.5f);
+    obj->vertices[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
+    obj->vertices[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
+    obj->vertices[2] = (V2){-half.x,  half.y}; // TOP-LEFT
+    obj->vertices[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
+
+    ForArray(i, obj->vertices)
+    {
+        V2 vert = obj->vertices[i];
+
+        obj->vertices[i].x = vert.x * c - vert.y * s;
+        obj->vertices[i].y = vert.x * s + vert.y * c;
+
+        obj->vertices[i].x += obj->p.x;
+        obj->vertices[i].y += obj->p.y;
+    }
+}

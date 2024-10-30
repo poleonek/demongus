@@ -3,35 +3,6 @@
 //           and it should be isolated from platform specific
 //           stuff when it's reasonable.
 //
-static void Object_UpdateVerticesAndNormals(Object *obj)
-{
-    float rotation = obj->rotation; // @todo turns -> radians
-    float s = SinF(rotation);
-    float c = CosF(rotation);
-
-    obj->normals[0] = (V2){ c,  s}; // RIGHT
-    obj->normals[1] = (V2){-s,  c}; // TOP
-    obj->normals[2] = (V2){-c, -s}; // LEFT
-    obj->normals[3] = (V2){ s, -c}; // BOTTOM
-
-    V2 half = V2_Scale(obj->dim, 0.5f);
-    obj->vertices[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
-    obj->vertices[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
-    obj->vertices[2] = (V2){-half.x,  half.y}; // TOP-LEFT
-    obj->vertices[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
-
-    ForArray(i, obj->vertices)
-    {
-        V2 vert = obj->vertices[i];
-
-        obj->vertices[i].x = vert.x * c - vert.y * s;
-        obj->vertices[i].y = vert.x * s + vert.y * c;
-
-        obj->vertices[i].x += obj->p.x;
-        obj->vertices[i].y += obj->p.y;
-    }
-}
-
 static void Game_AdvanceSimulation(AppState *app)
 {
     // animate special wall
@@ -44,6 +15,7 @@ static void Game_AdvanceSimulation(AppState *app)
         {
             obj->rotation -= period;
         }
+        Object_UpdateVerticesAndNormals(obj);
     }
 
     // player input
@@ -90,22 +62,12 @@ static void Game_AdvanceSimulation(AppState *app)
         }
     }
 
-    // update vertices and normals
-    // @todo @speed we dont need to do this if we ensure vert/normal initialization
-    ForU32(obj_id, app->object_count)
-    {
-        Object *obj = app->object_pool + obj_id;
-        Object_UpdateVerticesAndNormals(obj);
-    }
-
-    // movement
+    // movement & collision
     ForU32(obj_id, app->object_count)
     {
         Object *obj = app->object_pool + obj_id;
         obj->has_collision = false;
     }
-
-    // @todo sat algorithm
     ForU32(obj_id, app->object_count)
     {
         Object *obj = app->object_pool + obj_id;
@@ -120,7 +82,7 @@ static void Game_AdvanceSimulation(AppState *app)
 
             Uint32 closest_obstacle_id = 0;
             float closest_obstacle_separation_dist = FLT_MAX;
-            V2 closest_obstacle_displacement_normal = {0};
+            V2 closest_obstacle_wall_normal = {0};
 
             ForU32(obstacle_id, app->object_count)
             {
@@ -128,54 +90,60 @@ static void Game_AdvanceSimulation(AppState *app)
                 if (!(obstacle->flags & ObjectFlag_Collide)) continue;
                 if (obj == obstacle) continue;
 
-                NormalsInnerVerticesResult minmax_obj_obstacle = Object_NormalsInnerVertices(obj, obstacle);
-                //
-                NormalsInnerVerticesResult minmax_obstacle_obstacle = Object_NormalsInnerVertices(obstacle, obstacle);
-                NormalsInnerVerticesResult minmax_obstacle_obj = Object_NormalsInnerVertices(obstacle, obj);
-
                 float biggest_dist = -FLT_MAX;
-                V2 displacement_normal = {0};
+                V2 wall_normal = {0};
 
-                ForU32(pair, 2)
+                // @info(mg) SAT algorithm needs 2 iterations
+                // from the perspective of the obj
+                // and from the perspective of the obstacle.
+                ForU32(sat_iteration, 2)
                 {
+                    Object *normal_obj;
                     NormalsInnerVerticesResult a;
                     NormalsInnerVerticesResult b;
-                    Object *normal_obj;
-                    if (pair == 0)
+                    if (sat_iteration == 0)
                     {
-                        a = minmax_obj_obj;
-                        b = minmax_obj_obstacle;
                         normal_obj = obj;
+                        a = minmax_obj_obj;
+                        b = Object_NormalsInnerVertices(normal_obj, obstacle);
                     }
                     else
                     {
-                        a = minmax_obstacle_obstacle;
-                        b = minmax_obstacle_obj;
                         normal_obj = obstacle;
+                        a = Object_NormalsInnerVertices(normal_obj, obstacle); // @speed(mg) we could cache these per object
+                        b = Object_NormalsInnerVertices(normal_obj, obj);
                     }
 
                     ForArray(i, a.arr)
                     {
                         static_assert(ArrayCount(a.arr) == ArrayCount(obj->normals));
-                        V2 normal = (pair == 0 ? obj : obstacle)->normals[i];
+                        V2 normal = normal_obj->normals[i];
 
                         float d = RngF_MaxDistance(a.arr[i], b.arr[i]);
+                        if (d > 0.f)
+                        {
+                            // @info(mg) We can exit early from checking this
+                            //     obstacle since we found an axist that has
+                            //     a separation between obj and obstacle.
+                            goto skip_this_obstacle;
+                        }
+
                         if (d > biggest_dist)
                         {
                             biggest_dist = d;
-                            displacement_normal = normal;
+                            wall_normal = normal;
                         }
                         else if (d == biggest_dist)
                         {
-                            // Tie break for walls that are parallel (like in rectangles)
-                            // I have a strong suspicion that this tie break could be avoided
-                            //     ~mg 2024-10-30
+                            // @info(mg) Tie break for walls that are parallel (like in rectangles).
+                            //           We pick a normal from a wall that is facing the obj more.
+                            //           I have a suspicion that this branch could be avoided.
                             V2 obj_dir = V2_Sub(obj->p, obstacle->p);
-                            float current_inner = V2_Inner(obj_dir, displacement_normal);
+                            float current_inner = V2_Inner(obj_dir, wall_normal);
                             float new_inner = V2_Inner(obj_dir, normal);
                             if (new_inner > current_inner)
                             {
-                                displacement_normal = normal;
+                                wall_normal = normal;
                             }
                         }
                     }
@@ -184,19 +152,20 @@ static void Game_AdvanceSimulation(AppState *app)
                 if (closest_obstacle_separation_dist > biggest_dist)
                 {
                     closest_obstacle_separation_dist = biggest_dist;
-                    //closest_obstacle_displacement_dist = displacement_dist;
-                    closest_obstacle_displacement_normal = displacement_normal;
+                    closest_obstacle_wall_normal = wall_normal;
                     closest_obstacle_id = obstacle_id;
                 }
 
                 obj->has_collision |= (biggest_dist < 0.f);
                 obstacle->has_collision |= (biggest_dist < 0.f);
+
+                skip_this_obstacle:;
             }
 
             if (closest_obstacle_separation_dist < 0.f)
             {
                 Object *closest_obstacle = Object_Get(app, closest_obstacle_id);
-                V2 move_out_dir = closest_obstacle_displacement_normal;
+                V2 move_out_dir = closest_obstacle_wall_normal;
                 float move_out_magnitude = -closest_obstacle_separation_dist;
 
                 V2 move_out = V2_Scale(move_out_dir, move_out_magnitude);
@@ -211,7 +180,7 @@ static void Game_AdvanceSimulation(AppState *app)
             }
             else
             {
-                // we don't need to iterate collisions anymore
+                // Collision not found, stop iterating
                 break;
             }
         } // collision_iteration
@@ -380,5 +349,12 @@ static void Game_Init(AppState *app)
             rot_wall->rotation = 0.125f;
             app->special_wall = Object_IdFromPointer(app, rot_wall);
         }
+    }
+
+    // initialize normals (for collision) and vertices (for collision & drawing)
+    ForU32(obj_id, app->object_count)
+    {
+        Object *obj = app->object_pool + obj_id;
+        Object_UpdateVerticesAndNormals(obj);
     }
 }
