@@ -7,6 +7,7 @@
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+//#include <SDL3_image/SDL_image.h>
 
 #define WINDOW_HEIGHT 900
 #define WINDOW_WIDTH 1600
