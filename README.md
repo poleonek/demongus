@@ -41,7 +41,7 @@ cmake -S . -B build\win -DSDL_STATIC=ON && cmake --build build\win
 cd ..\..
 
 cd libs\SDL_image
-cmake -S . -B build\win -DSDL_STATIC=ON -DSDLIMAGE_VENDORED=OFF "-DSDL3_DIR=..\SDL\build\win"
+cmake -S . -B build\win -DSDLIMAGE_VENDORED=OFF -DBUILD_SHARED_LIBS=OFF "-DSDL3_DIR=..\SDL\build\win" && cmake --build build\win
 cd ..\..
 ```
 
