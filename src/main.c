@@ -96,7 +96,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     }
     state->width = WINDOW_WIDTH;
     state->height = WINDOW_HEIGHT;
-    Game_Init(state);
 
     if (!SDL_CreateWindowAndRenderer("demongus", state->width, state->height,
                                      SDL_WINDOW_RESIZABLE, &state->window, &state->renderer))
@@ -106,6 +105,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     }
 
     SDL_SetRenderDrawBlendMode(state->renderer, SDL_BLENDMODE_BLEND);
+
+    Game_Init(state);
 
     return SDL_APP_CONTINUE;
 }

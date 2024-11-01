@@ -231,13 +231,13 @@ static void Game_IssueDrawCommands(AppState *app)
             }
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
-            fcolor.a = 0.2f;
+            fcolor.a = 0.7f;
             if (obj->has_collision)
             {
                 fcolor.r = SqrtF(fcolor.r);
                 fcolor.g = SqrtF(fcolor.g);
                 fcolor.b = SqrtF(fcolor.b);
-                fcolor.a = 0.9f;
+                fcolor.a = 0.95f;
             }
 
             SDL_Vertex sdl_verts[4];
@@ -249,9 +249,13 @@ static void Game_IssueDrawCommands(AppState *app)
                 sdl_verts[i].position = V2_To_SDL_FPoint(verts[i]);
                 sdl_verts[i].color = fcolor;
             }
+            sdl_verts[0].tex_coord = (SDL_FPoint){0,0};
+            sdl_verts[1].tex_coord = (SDL_FPoint){0,1};
+            sdl_verts[2].tex_coord = (SDL_FPoint){1,0};
+            sdl_verts[3].tex_coord = (SDL_FPoint){1,1};
 
             int indices[] = { 0, 1, 2, 2, 3, 1 };
-            SDL_RenderGeometry(app->renderer, 0,
+            SDL_RenderGeometry(app->renderer, obj->texture,
                                sdl_verts, ArrayCount(sdl_verts),
                                indices, ArrayCount(indices));
         }
@@ -309,7 +313,7 @@ static void Game_Init(AppState *app)
     app->object_count += 1; // reserve object under index 0 as special 'nil' value
     app->camera_range = 20;
 
-    SDL_Texture *texture_crate = IMG_LoadTexture(app->renderer, "../res/pxart/crate.png");
+    SDL_Texture *texture_crate = IMG_LoadTexture(app->renderer, "../res/pxart/crate.png"); // this assumes we run the game from build directory - @todo in the future we should force CWD or query demongus absolute path etc
 
     // add player
     {
@@ -319,6 +323,7 @@ static void Game_Init(AppState *app)
         player->dim.y = 0.7f;
         player->color = ColorF_RGB(.89f, .02f, 0);
         player->rotation = 0.3f;
+        player->texture = texture_crate;
         app->player_ids[0] = Object_IdFromPointer(app, player);
     }
     // add player2

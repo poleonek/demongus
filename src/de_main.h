@@ -30,6 +30,7 @@ typedef struct
 
     // temp
     bool has_collision;
+    SDL_Texture *texture;
 } Object;
 
 typedef struct
