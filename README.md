@@ -36,9 +36,13 @@ Building CMake SDL from .bat file seems to be broken.
 What works from me is calling SDL build commands manually from Developer pwsh.exe (new powershell + cl compiler).
 Sorry about that, would be nice to fix this.
 ```bat
-cd SDL
-cmake -S . -B build\win -DSDL_SHARED=OFF -DSDL_STATIC=ON && cmake --build build\win
-cd ..
+cd libs\SDL
+cmake -S . -B build\win -DSDL_STATIC=ON && cmake --build build\win
+cd ..\..
+
+cd libs\SDL_image
+cmake -S . -B build\win -DSDL_STATIC=ON -DSDLIMAGE_VENDORED=OFF "-DSDL3_DIR=..\SDL\build\win"
+cd ..\..
 ```
 
 # Resources

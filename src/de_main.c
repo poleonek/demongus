@@ -309,7 +309,7 @@ static void Game_Init(AppState *app)
     app->object_count += 1; // reserve object under index 0 as special 'nil' value
     app->camera_range = 20;
 
-    //SDL_Texture *texture_crate = IMG_LoadTexture(app->renderer, "../res/pxart/crate.png");
+    SDL_Texture *texture_crate = IMG_LoadTexture(app->renderer, "../res/pxart/crate.png");
 
     // add player
     {
