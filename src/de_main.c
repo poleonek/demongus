@@ -378,8 +378,8 @@ static void Game_Init(AppState *app)
         Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
         player->p.x = -1.f;
         float scale = 0.0175f;
-        player->dim.x = 26.f * scale;
-        player->dim.y = (160.f/4.f) * scale;
+        player->dim.x = texture_dude->w * scale;
+        player->dim.y = (texture_dude->h / 4.f) * scale;
         player->color = ColorF_RGB(1,1,1);
         //player->rotation = 0.3f;
         player->texture = texture_dude;
@@ -411,12 +411,19 @@ static void Game_Init(AppState *app)
             rot_wall->rotation = 0.125f;
         }
         {
-            Object *ref_wall = Object_Wall(app, (V2){0, off*0.5f}, (V2){thickness*2.f, thickness*2.f});
+            float px_x = texture_ref->w;
+            float px_y = texture_ref->h;
+            float scale = 0.035f;
+            Object *ref_wall = Object_Wall(app, (V2){0, off*0.5f}, (V2){px_x*scale, px_y*scale});
             ref_wall->color = ColorF_RGBA(1,1,1,1);
             ref_wall->texture = texture_ref;
         }
         {
-            Object *crate_wall = Object_Wall(app, (V2){0, -off*0.5f}, (V2){thickness*2.f, thickness*2.f});
+            float px_x = texture_crate->w;
+            float px_y = texture_crate->h;
+            float scale = 0.04f;
+            Object *crate_wall = Object_Wall(app, (V2){0, -off*0.5f},
+                                             (V2){px_x*scale, px_y*scale});
             crate_wall->color = ColorF_RGBA(1,1,1,1);
             crate_wall->texture = texture_crate;
         }
