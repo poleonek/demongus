@@ -5,6 +5,13 @@
 //
 static void Game_AdvanceSimulation(AppState *app)
 {
+    // update prev_p
+    ForU32(obj_id, app->object_count)
+    {
+        Object *obj = app->object_pool + obj_id;
+        obj->prev_p = obj->p;
+    }
+
     // animate special wall
     {
         Object *obj = Object_Get(app, app->special_wall);
@@ -21,7 +28,7 @@ static void Game_AdvanceSimulation(AppState *app)
     // player input
     ForArray(player_id_index, app->player_ids)
     {
-        Uint32 player_id = app->player_ids[player_id_index];
+        Object *player = Object_PlayerFromIndex(app, player_id_index);
 
         V2 dir = {0};
         if (player_id_index == 0)
@@ -40,8 +47,6 @@ static void Game_AdvanceSimulation(AppState *app)
             if (app->keyboard[SDL_SCANCODE_L]) dir.x += 1;
         }
         dir = V2_Normalize(dir);
-
-        Object *player = Object_Get(app, player_id);
 
         bool ice_skating_dlc = (player_id_index == 1);
         if (ice_skating_dlc)
@@ -186,6 +191,39 @@ static void Game_AdvanceSimulation(AppState *app)
         } // collision_iteration
     } // obj_id
 
+
+    // animate textures
+    {
+        Uint32 frame_index_map[8] =
+        {
+            0, 1, 2, 1,
+            0, 3, 4, 3
+        };
+
+        Object *player = Object_PlayerFromIndex(app, 0);
+        bool in_idle_frame = (0 == frame_index_map[player->animation_frame]);
+
+        float distance = V2_Length(V2_Sub(player->p, player->prev_p));
+        float anim_speed = (3.f * app->dt);
+        anim_speed += (800.f * distance * app->dt);
+
+        if (!distance && in_idle_frame)
+        {
+            anim_speed = 0.f;
+        }
+        player->anim_t += anim_speed;
+
+        float period = 0.25f;
+        while (player->anim_t > period)
+        {
+            player->anim_t -= period;
+            player->animation_frame += 1;
+        }
+
+        player->animation_frame %= ArrayCount(frame_index_map);
+        player->texture_frame_index = frame_index_map[player->animation_frame];
+    }
+
     // move camera
     {
         Object *player = Object_Get(app, app->player_ids[0]);
@@ -249,10 +287,21 @@ static void Game_IssueDrawCommands(AppState *app)
                 sdl_verts[i].position = V2_To_SDL_FPoint(verts[i]);
                 sdl_verts[i].color = fcolor;
             }
-            sdl_verts[0].tex_coord = (SDL_FPoint){0,0};
-            sdl_verts[1].tex_coord = (SDL_FPoint){0,1};
-            sdl_verts[2].tex_coord = (SDL_FPoint){1,0};
-            sdl_verts[3].tex_coord = (SDL_FPoint){1,1};
+
+            {
+                float tex_y0 = 0.f;
+                float tex_y1 = 1.f;
+                if (obj->texture_frame_count)
+                {
+                    float tex_height = 1.f / obj->texture_frame_count;
+                    tex_y0 = obj->texture_frame_index * tex_height;
+                    tex_y1 = tex_y0 + tex_height;
+                }
+                sdl_verts[0].tex_coord = (SDL_FPoint){0, tex_y1};
+                sdl_verts[1].tex_coord = (SDL_FPoint){1, tex_y1};
+                sdl_verts[2].tex_coord = (SDL_FPoint){0, tex_y0};
+                sdl_verts[3].tex_coord = (SDL_FPoint){1, tex_y0};
+            }
 
             int indices[] = { 0, 1, 2, 2, 3, 1 };
             SDL_RenderGeometry(app->renderer, obj->texture,
@@ -311,19 +360,30 @@ static void Game_Init(AppState *app)
 
     app->frame_time = SDL_GetTicks();
     app->object_count += 1; // reserve object under index 0 as special 'nil' value
-    app->camera_range = 20;
+    app->camera_range = 15;
 
-    SDL_Texture *texture_crate = IMG_LoadTexture(app->renderer, "../res/pxart/crate.png"); // this assumes we run the game from build directory - @todo in the future we should force CWD or query demongus absolute path etc
+    // this assumes we run the game from build directory
+    // @todo in the future we should force CWD or query demongus absolute path etc
+    SDL_Texture *texture_crate = IMG_LoadTexture(app->renderer, "../res/pxart/crate.png");
+    SDL_SetTextureScaleMode(texture_crate, SDL_SCALEMODE_NEAREST);
+
+    SDL_Texture *texture_dude = IMG_LoadTexture(app->renderer, "../res/pxart/dude_walk.png");
+    SDL_SetTextureScaleMode(texture_dude, SDL_SCALEMODE_NEAREST);
+
+    SDL_Texture *texture_ref = IMG_LoadTexture(app->renderer, "../res/pxart/reference.png");
+    SDL_SetTextureScaleMode(texture_ref, SDL_SCALEMODE_NEAREST);
 
     // add player
     {
         Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
         player->p.x = -1.f;
-        player->dim.x = 0.5f;
-        player->dim.y = 0.7f;
-        player->color = ColorF_RGB(.89f, .02f, 0);
-        player->rotation = 0.3f;
-        player->texture = texture_crate;
+        float scale = 0.0175f;
+        player->dim.x = 26.f * scale;
+        player->dim.y = (160.f/4.f) * scale;
+        player->color = ColorF_RGB(1,1,1);
+        //player->rotation = 0.3f;
+        player->texture = texture_dude;
+        player->texture_frame_count = 5;
         app->player_ids[0] = Object_IdFromPointer(app, player);
     }
     // add player2
@@ -350,7 +410,16 @@ static void Game_Init(AppState *app)
             Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
             rot_wall->rotation = 0.125f;
         }
-
+        {
+            Object *ref_wall = Object_Wall(app, (V2){0, off*0.5f}, (V2){thickness*2.f, thickness*2.f});
+            ref_wall->color = ColorF_RGBA(1,1,1,1);
+            ref_wall->texture = texture_ref;
+        }
+        {
+            Object *crate_wall = Object_Wall(app, (V2){0, -off*0.5f}, (V2){thickness*2.f, thickness*2.f});
+            crate_wall->color = ColorF_RGBA(1,1,1,1);
+            crate_wall->texture = texture_crate;
+        }
         {
             Object *rot_wall = Object_Wall(app, (V2){off,-off*2.f}, (V2){length*0.5f, thickness});
             rot_wall->rotation = 0.125f;

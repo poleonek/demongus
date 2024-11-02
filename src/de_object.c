@@ -4,6 +4,12 @@ static Object *Object_Get(AppState *app, Uint32 id)
     Assert(id < app->object_count);
     return app->object_pool + id;
 }
+static Object *Object_PlayerFromIndex(AppState *app, Uint32 player_index)
+{
+    Assert(player_index < ArrayCount(app->player_ids));
+    Uint32 player_id = app->player_ids[player_index];
+    return Object_Get(app, player_id);
+}
 
 // @info(mg) This function will probably be replaced in the future
 //           when we track 'key/index' in the object itself.

@@ -23,6 +23,7 @@ typedef struct
     V2 dim;
     float rotation; // in turns; 1.0 == 360 degrees
     ColorF color;
+    V2 prev_p; // position from the last frame
 
     // calculated after applying rotation
     V2 normals[4]; // right, top, left, bottom
@@ -31,6 +32,10 @@ typedef struct
     // temp
     bool has_collision;
     SDL_Texture *texture;
+    Uint32 texture_frame_count;
+    Uint32 texture_frame_index;
+    Uint32 animation_frame;
+    float anim_t;
 } Object;
 
 typedef struct
