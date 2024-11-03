@@ -1,3 +1,8 @@
+// ---
+// Constants
+// ---
+#define ScaleMetersPerPixel 0.025f
+
 typedef enum {
     Axis2_X,
     Axis2_Y,
@@ -26,8 +31,8 @@ typedef struct
     Uint32 flags;
     V2 p; // position of center
     V2 dp; // change of p
-    V2 dim;
-    float rotation; // in turns; 1.0 == 360 degrees
+    V2 dim; // collision dim
+    float rotation; // collision rotation, in turns; 1.0 == 360 degrees
     ColorF color;
     V2 prev_p; // position from the last frame
 
@@ -37,6 +42,7 @@ typedef struct
 
     Uint32 sprite_id;
     float sprite_rotation;
+    float sprite_scale;
     bool dirty_sprite_vertices;
     V2 sprite_vertices[4];
 

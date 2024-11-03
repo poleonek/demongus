@@ -30,6 +30,7 @@ static Object *Object_Create(AppState *app, Uint32 flags)
     SDL_zerop(obj);
     obj->flags = flags;
     obj->color = ColorF_RGB(1,1,1);
+    obj->sprite_scale = 1.f;
     return obj;
 }
 
@@ -80,12 +81,37 @@ static CollisionProjectionResult Object_CollisionProjection(Object *obj_normals,
     return result;
 }
 
-static void Object_CalculateVerticesAndNormals(Object *obj, bool update_sprite)
+static V2 Object_GetDrawDim(AppState *app, Object *obj)
+{
+    Sprite *sprite = Sprite_Get(app, obj->sprite_id);
+    if (sprite->tex)
+    {
+        V2 sprite_dim =
+        {
+            (float)sprite->tex->w,
+            (float)sprite->tex->h,
+        };
+        if (sprite->frame_count)
+        {
+            sprite_dim.y /= (float)sprite->frame_count;
+        }
+
+        float scale = obj->sprite_scale * ScaleMetersPerPixel;
+        return V2_Scale(sprite_dim, scale);
+    }
+    else
+    {
+        return obj->dim;
+    }
+}
+
+static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool update_sprite)
 {
     float rotation = (update_sprite ? obj->sprite_rotation : obj->rotation);
-    // @todo turns -> radians
-    float s = SinF(rotation);
-    float c = CosF(rotation);
+    // Ideally we would have custom made sin/cos that work with turns
+    // turns -> * pi -> radians
+    float s = SinF(rotation * 2.f*SDL_PI_F);
+    float c = CosF(rotation * 2.f*SDL_PI_F);
 
     if (!update_sprite)
     {
@@ -99,7 +125,8 @@ static void Object_CalculateVerticesAndNormals(Object *obj, bool update_sprite)
     V2 *verts = (update_sprite ? obj->sprite_vertices : obj->collision_vertices);
     size_t vert_count = ArrayCount(obj->collision_vertices);
 
-    V2 half = V2_Scale(obj->dim, 0.5f);
+    V2 dim = (update_sprite ? Object_GetDrawDim(app, obj) : obj->dim);
+    V2 half = V2_Scale(dim, 0.5f);
     verts[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
     verts[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
     verts[2] = (V2){-half.x,  half.y}; // TOP-LEFT
@@ -117,11 +144,11 @@ static void Object_CalculateVerticesAndNormals(Object *obj, bool update_sprite)
     }
 }
 
-static void Object_UpdateCollisionVerticesAndNormals(Object *obj)
+static void Object_UpdateCollisionVerticesAndNormals(AppState *app, Object *obj)
 {
     // @todo This function should be called automatically?
     //       We should add some asserts and checks to make sure
     //       that we aren't using stale vertices & normals
     obj->dirty_sprite_vertices = true;
-    Object_CalculateVerticesAndNormals(obj, false);
+    Object_CalculateVerticesAndNormals(app, obj, false);
 }

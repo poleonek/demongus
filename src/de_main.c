@@ -3,37 +3,6 @@
 //           and it should be isolated from platform specific
 //           stuff when it's reasonable.
 //
-static Sprite *Sprite_Get(AppState *app, Uint32 sprite_id)
-{
-    Assert(sprite_id < ArrayCount(app->sprite_pool));
-    return app->sprite_pool + sprite_id;
-}
-
-static Sprite *Sprite_Create(AppState *app, const char *texture_path,
-                             Uint32 frame_count)
-{
-    Assert(app->sprite_count < ArrayCount(app->sprite_pool));
-    Sprite *sprite = app->sprite_pool + app->sprite_count;
-    app->sprite_count += 1;
-
-    sprite->tex = IMG_LoadTexture(app->renderer, texture_path);
-    SDL_SetTextureScaleMode(sprite->tex, SDL_SCALEMODE_NEAREST);
-
-    sprite->frame_count = frame_count;
-    return sprite;
-}
-
-// @info(mg) This function will probably be replaced in the future
-//           when we track 'key/index' in the sprite itself
-//           (would be useful for dynamic in/out streaming of sprites).
-static Uint32 Sprite_IdFromPointer(AppState *app, Sprite *sprite)
-{
-    size_t byte_delta = (size_t)sprite - (size_t)app->sprite_pool;
-    size_t id = byte_delta / sizeof(*sprite);
-    Assert(id < ArrayCount(app->sprite_pool));
-    return (Uint32)id;
-}
-
 static void Game_AdvanceSimulation(AppState *app)
 {
     // update prev_p
@@ -46,15 +15,9 @@ static void Game_AdvanceSimulation(AppState *app)
     // animate special wall
     {
         Object *obj = Object_Get(app, app->special_wall);
-        obj->rotation += app->dt;
-
-        float period = 3.14f/2.f;
-        while (obj->rotation > period)
-        {
-            obj->rotation -= period;
-        }
+        obj->rotation = WrapF(0.f, 1.f, obj->rotation + app->dt);
         obj->sprite_rotation = obj->rotation;
-        Object_UpdateCollisionVerticesAndNormals(obj);
+        Object_UpdateCollisionVerticesAndNormals(app, obj);
     }
 
     // player input
@@ -111,7 +74,7 @@ static void Game_AdvanceSimulation(AppState *app)
         if (!(obj->flags & ObjectFlag_Move)) continue;
 
         obj->p = V2_Add(obj->p, obj->dp);
-        Object_UpdateCollisionVerticesAndNormals(obj);
+        Object_UpdateCollisionVerticesAndNormals(app, obj);
 
         ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
@@ -212,7 +175,7 @@ static void Game_AdvanceSimulation(AppState *app)
                 if (move_out.x) obj->dp.x = 0;
                 if (move_out.y) obj->dp.y = 0;
 
-                Object_UpdateCollisionVerticesAndNormals(obj);
+                Object_UpdateCollisionVerticesAndNormals(app, obj);
             }
             else
             {
@@ -319,17 +282,12 @@ static void Game_IssueDrawCommands(AppState *app)
 
             if (obj->dirty_sprite_vertices)
             {
-                Object_CalculateVerticesAndNormals(obj, true);
+                Object_CalculateVerticesAndNormals(app, obj, true);
             }
 
             V2 verts[4];
-#if 0
-            static_assert(sizeof(verts) == sizeof(obj->collision_vertices));
-            memcpy(verts, obj->collision_vertices, sizeof(obj->collision_vertices));
-#else
             static_assert(sizeof(verts) == sizeof(obj->sprite_vertices));
             memcpy(verts, obj->sprite_vertices, sizeof(obj->sprite_vertices));
-#endif
             Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
@@ -532,11 +490,12 @@ static void Game_Init(AppState *app)
         {
             float px_x = sprite_crate->tex->w;
             float px_y = sprite_crate->tex->h;
-            float scale = 0.04f;
+            float scale = 0.015f;
             Object *crate_wall = Object_Wall(app, (V2){0, -off*0.5f},
                                              (V2){px_x*scale, px_y*scale});
             crate_wall->color = ColorF_RGBA(1,1,1,1);
             crate_wall->sprite_id = Sprite_IdFromPointer(app, sprite_crate);
+            crate_wall->rotation = 0.125f;
         }
         {
             Object *rot_wall = Object_Wall(app, (V2){off,-off*2.f}, (V2){length*0.5f, thickness});
@@ -549,6 +508,6 @@ static void Game_Init(AppState *app)
     ForU32(obj_id, app->object_count)
     {
         Object *obj = app->object_pool + obj_id;
-        Object_UpdateCollisionVerticesAndNormals(obj);
+        Object_UpdateCollisionVerticesAndNormals(app, obj);
     }
 }
