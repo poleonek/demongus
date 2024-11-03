@@ -56,7 +56,7 @@ typedef struct
 
 static CollisionProjectionResult Object_CollisionProjection(Object *obj_normals, Object *obj_verts)
 {
-    CollisionProjectionResult result;
+    CollisionProjectionResult result = {0};
     static_assert(ArrayCount(result.arr) == ArrayCount(obj_normals->collision_normals));
 
     ForArray(normal_index, obj_normals->collision_normals)

@@ -17,7 +17,7 @@ set auto_compile_flags=
 if "%asan%"=="1"      set auto_compile_flags=%auto_compile_flags% -fsanitize=address && echo [asan enabled]
 
 :: --- Compile/Link Line Definitions ------------------------------------------
-set cl_common=     /I..\src\ /I..\libs\SDL\include\ /I..\libs\SDL_image\include\ /nologo /FC /Z7 /MD
+set cl_common=     /I..\src\ /I..\libs\SDL\include\ /I..\libs\SDL_image\include\ /nologo /FC /Z7 /MD /W4 /wd4244 /wd4201
 set clang_common=  -I..\src\ -I..\libs\SDL\include\ -I..\libs\SDL_image\include\ -fdiagnostics-absolute-paths -Wall -Wno-unused-variable -Wno-missing-braces -Wno-unused-function -Wno-microsoft-static-assert -Wno-c2x-extensions
 set cl_debug=      call cl /Od /Ob1 /DBUILD_DEBUG=1 %cl_common% %auto_compile_flags%
 set cl_release=    call cl /O2 /DBUILD_DEBUG=0 %cl_common% %auto_compile_flags%

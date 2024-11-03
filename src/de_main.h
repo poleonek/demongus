@@ -72,7 +72,10 @@ typedef struct
         float fixed_dt;
         bool pause_on_every_frame;
         bool paused_frame;
+
         bool draw_collision_box;
+        float collision_color_t;
+
         bool draw_texture_box;
     } debug;
 } AppState;

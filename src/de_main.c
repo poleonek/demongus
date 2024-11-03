@@ -169,7 +169,6 @@ static void Game_AdvanceSimulation(AppState *app)
 
             if (closest_obstacle_separation_dist < 0.f)
             {
-                Object *closest_obstacle = Object_Get(app, closest_obstacle_id);
                 V2 move_out_dir = closest_obstacle_wall_normal;
                 float move_out_magnitude = -closest_obstacle_separation_dist;
 
@@ -231,6 +230,25 @@ static void Game_AdvanceSimulation(AppState *app)
     }
 }
 
+static void Game_VerticesCameraTransform(AppState *app, V2 verts[4], float camera_scale, V2 window_transform)
+{
+    ForU32(i, 4)
+    {
+        // apply camera transform
+        verts[i].x -= app->camera_p.x;
+        verts[i].y -= app->camera_p.y;
+
+        verts[i].x *= camera_scale;
+        verts[i].y *= camera_scale;
+
+        verts[i].x += window_transform.x;
+        verts[i].y += window_transform.y;
+
+        // fix y axis direction to +Y up (SDL uses +Y down, -Y up)
+        verts[i].y = app->height - verts[i].y;
+    }
+}
+
 static void Game_IssueDrawCommands(AppState *app)
 {
     // draw objects
@@ -242,42 +260,16 @@ static void Game_IssueDrawCommands(AppState *app)
         }
         V2 window_transform = (V2){app->width*0.5f, app->height*0.5f};
 
-        ForU32(i, app->object_count)
+        ForU32(object_index, app->object_count)
         {
-            Object *obj = app->object_pool + i;
-            V2 half_dim = V2_Scale(obj->dim, 0.5f);
-
+            Object *obj = app->object_pool + object_index;
 
             V2 verts[4];
             static_assert(sizeof(verts) == sizeof(obj->collision_vertices));
             memcpy(verts, obj->collision_vertices, sizeof(obj->collision_vertices));
-
-            ForArray(i, verts)
-            {
-                // apply camera transform
-                verts[i].x -= app->camera_p.x;
-                verts[i].y -= app->camera_p.y;
-
-                verts[i].x *= camera_scale;
-                verts[i].y *= camera_scale;
-
-                verts[i].x += window_transform.x;
-                verts[i].y += window_transform.y;
-
-                // fix y axis direction to +Y up (SDL uses +Y down, -Y up)
-                verts[i].y = app->height - verts[i].y;
-            }
+            Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
-            fcolor.a = 0.7f;
-            if (obj->has_collision)
-            {
-                fcolor.r = SqrtF(fcolor.r);
-                fcolor.g = SqrtF(fcolor.g);
-                fcolor.b = SqrtF(fcolor.b);
-                fcolor.a = 0.95f;
-            }
-
             SDL_Vertex sdl_verts[4];
             SDL_zerop(sdl_verts);
 
@@ -307,6 +299,49 @@ static void Game_IssueDrawCommands(AppState *app)
             SDL_RenderGeometry(app->renderer, obj->texture,
                                sdl_verts, ArrayCount(sdl_verts),
                                indices, ArrayCount(indices));
+        }
+
+        if (app->debug.draw_collision_box)
+        {
+            app->debug.collision_color_t = WrapF(0.f, 0.6f, app->debug.collision_color_t + 0.5f*app->dt);
+
+            ForU32(object_index, app->object_count)
+            {
+                Object *obj = app->object_pool + object_index;
+                if (!(obj->flags & ObjectFlag_Collide)) continue;
+
+                V2 verts[4];
+                static_assert(sizeof(verts) == sizeof(obj->collision_vertices));
+                memcpy(verts, obj->collision_vertices, sizeof(obj->collision_vertices));
+                Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
+
+                ColorF color = ColorF_RGBA(0.5f, 0.5f,
+                                           app->debug.collision_color_t,
+                                           0.4f);
+                if (obj->has_collision)
+                {
+                    color.r = SqrtF(color.r);
+                    color.g = SqrtF(color.g);
+                    color.b = SqrtF(color.b);
+                    color.a = 0.8f;
+                }
+
+                SDL_FColor fcolor = ColorF_To_SDL_FColor(color);
+                SDL_Vertex sdl_verts[4];
+                SDL_zerop(sdl_verts);
+
+                static_assert(ArrayCount(verts) == ArrayCount(sdl_verts));
+                ForArray(i, sdl_verts)
+                {
+                    sdl_verts[i].position = V2_To_SDL_FPoint(verts[i]);
+                    sdl_verts[i].color = fcolor;
+                }
+
+                int indices[] = { 0, 1, 2, 2, 3, 1 };
+                SDL_RenderGeometry(app->renderer, 0,
+                                   sdl_verts, ArrayCount(sdl_verts),
+                                   indices, ArrayCount(indices));
+            }
         }
     }
 
@@ -356,6 +391,7 @@ static void Game_Init(AppState *app)
     {
         //app->debug.fixed_dt = 0.1f;
         //app->debug.pause_on_every_frame = true;
+        app->debug.draw_collision_box = true;
     }
 
     app->frame_time = SDL_GetTicks();

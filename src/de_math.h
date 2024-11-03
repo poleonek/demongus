@@ -5,10 +5,6 @@
 #define Max(a, b) ((a) > (b) ? (a) : (b))
 #define Clamp(min, max, val) (((val)<(min)) ? (min) : ((val)>(max))?(max):(val))
 
-static float LerpF(float a, float b, float t)
-{
-    return a + (b - a) * t;
-}
 static float SqrtF(float a)
 {
     return SDL_sqrtf(a);
@@ -28,6 +24,39 @@ static float SinF(float turns)
 static float CosF(float turns)
 {
     return SDL_cosf(turns);
+}
+
+static float CeilF(float a)
+{
+    return SDL_ceilf(a);
+}
+static float FloorF(float a)
+{
+    return SDL_floorf(a);
+}
+static float TruncateF(float a)
+{
+    return SDL_truncf(a);
+}
+static float RoundF(float a)
+{
+    // there is also SDL_lroundf variant that rounds to nearest long
+    return SDL_roundf(a);
+}
+
+static float LerpF(float a, float b, float t)
+{
+    return a + (b - a) * t;
+}
+static float ModuloF(float a, float mod)
+{
+    return a - TruncateF(a / mod) * mod;
+}
+static float WrapF(float min, float max, float a)
+{
+    float range = max - min;
+    float offset = a - min;
+    return (offset - (FloorF(offset / range) * range) + min);
 }
 
 // ---
@@ -116,11 +145,11 @@ static ColorF ColorF_Lerp(ColorF a, ColorF b, float t)
 
 static ColorF ColorF_RGBA(float r, float g, float b, float a)
 {
-    return (ColorF){r,g,b,a};
+    return (ColorF){r, g, b, a};
 }
 static ColorF ColorF_RGB(float r, float g, float b)
 {
-    return (ColorF){r,g,b};
+    return (ColorF){r, g, b, 1.f};
 }
 static ColorF ColorF_ChangeA(ColorF f, float a)
 {
@@ -128,7 +157,9 @@ static ColorF ColorF_ChangeA(ColorF f, float a)
     return f;
 }
 
-// Packed version but SDL api accepts floats too
+// ---
+// SDL type conversions
+// ---
 static SDL_Color ColorF_To_SDL_Color(ColorF f)
 {
     float inv = 1.f / 255.f;

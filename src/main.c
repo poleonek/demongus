@@ -87,6 +87,9 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 {
+    (void)argc;
+    (void)argv;
+
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to initialize SDL3.", SDL_GetError(), NULL);
@@ -119,6 +122,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
+    (void)result;
+
     const char* error = SDL_GetError();
     if (error[0])
     {
