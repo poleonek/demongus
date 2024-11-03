@@ -83,7 +83,7 @@ static void Game_AdvanceSimulation(AppState *app)
 
         ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
-            NormalsInnerVerticesResult minmax_obj_obj = Object_NormalsInnerVertices(obj, obj);
+            CollisionProjectionResult minmax_obj_obj = Object_CollisionProjection(obj, obj);
 
             Uint32 closest_obstacle_id = 0;
             float closest_obstacle_separation_dist = FLT_MAX;
@@ -104,25 +104,25 @@ static void Game_AdvanceSimulation(AppState *app)
                 ForU32(sat_iteration, 2)
                 {
                     Object *normal_obj;
-                    NormalsInnerVerticesResult a;
-                    NormalsInnerVerticesResult b;
+                    CollisionProjectionResult a;
+                    CollisionProjectionResult b;
                     if (sat_iteration == 0)
                     {
                         normal_obj = obj;
                         a = minmax_obj_obj;
-                        b = Object_NormalsInnerVertices(normal_obj, obstacle);
+                        b = Object_CollisionProjection(normal_obj, obstacle);
                     }
                     else
                     {
                         normal_obj = obstacle;
-                        a = Object_NormalsInnerVertices(normal_obj, obstacle); // @speed(mg) we could cache these per object
-                        b = Object_NormalsInnerVertices(normal_obj, obj);
+                        a = Object_CollisionProjection(normal_obj, obstacle); // @speed(mg) we could cache these per object
+                        b = Object_CollisionProjection(normal_obj, obj);
                     }
 
                     ForArray(i, a.arr)
                     {
-                        static_assert(ArrayCount(a.arr) == ArrayCount(obj->normals));
-                        V2 normal = normal_obj->normals[i];
+                        static_assert(ArrayCount(a.arr) == ArrayCount(obj->collision_normals));
+                        V2 normal = normal_obj->collision_normals[i];
 
                         float d = RngF_MaxDistance(a.arr[i], b.arr[i]);
                         if (d > 0.f)
@@ -249,8 +249,8 @@ static void Game_IssueDrawCommands(AppState *app)
 
 
             V2 verts[4];
-            static_assert(sizeof(verts) == sizeof(obj->vertices));
-            memcpy(verts, obj->vertices, sizeof(obj->vertices));
+            static_assert(sizeof(verts) == sizeof(obj->collision_vertices));
+            memcpy(verts, obj->collision_vertices, sizeof(obj->collision_vertices));
 
             ForArray(i, verts)
             {

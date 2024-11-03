@@ -56,6 +56,12 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
             return SDL_APP_SUCCESS;
         } break;
 
+        case SDL_EVENT_WINDOW_RESIZED:
+        {
+            app->width = event->window.data1;
+            app->height = event->window.data2;
+        } break;
+
         case SDL_EVENT_KEY_UP:
         case SDL_EVENT_KEY_DOWN:
         {

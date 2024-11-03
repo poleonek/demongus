@@ -26,8 +26,8 @@ typedef struct
     V2 prev_p; // position from the last frame
 
     // calculated after applying rotation
-    V2 normals[4]; // right, top, left, bottom
-    V2 vertices[4]; // bottom-left, bottom-right, top-left, top-right
+    V2 collision_normals[4]; // right, top, left, bottom
+    V2 collision_vertices[4]; // bottom-left, bottom-right, top-left, top-right
 
     // temp
     bool has_collision;
@@ -72,5 +72,7 @@ typedef struct
         float fixed_dt;
         bool pause_on_every_frame;
         bool paused_frame;
+        bool draw_collision_box;
+        bool draw_texture_box;
     } debug;
 } AppState;
