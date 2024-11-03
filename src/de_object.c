@@ -38,7 +38,7 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
 {
     Object *obj = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Collide);
     obj->p = p;
-    obj->dim = dim;
+    obj->collision_dim = dim;
 
     static float r = 0.f;
     static float g = 0.5f;
@@ -101,13 +101,13 @@ static V2 Object_GetDrawDim(AppState *app, Object *obj)
     }
     else
     {
-        return obj->dim;
+        return obj->collision_dim;
     }
 }
 
 static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool update_sprite)
 {
-    float rotation = (update_sprite ? obj->sprite_rotation : obj->rotation);
+    float rotation = (update_sprite ? obj->sprite_rotation : obj->collision_rotation);
     // Ideally we would have custom made sin/cos that work with turns
     // turns -> * pi -> radians
     float s = SinF(rotation * 2.f*SDL_PI_F);
@@ -125,7 +125,7 @@ static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool 
     V2 *verts = (update_sprite ? obj->sprite_vertices : obj->collision_vertices);
     size_t vert_count = ArrayCount(obj->collision_vertices);
 
-    V2 dim = (update_sprite ? Object_GetDrawDim(app, obj) : obj->dim);
+    V2 dim = (update_sprite ? Object_GetDrawDim(app, obj) : obj->collision_dim);
     V2 half = V2_Scale(dim, 0.5f);
     verts[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
     verts[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
@@ -141,6 +141,12 @@ static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool 
 
         verts[i].x += obj->p.x;
         verts[i].y += obj->p.y;
+
+        if (!update_sprite)
+        {
+            verts[i].x += obj->collision_offset.x;
+            verts[i].y += obj->collision_offset.y;
+        }
     }
 }
 

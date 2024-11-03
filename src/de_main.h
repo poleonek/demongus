@@ -31,15 +31,19 @@ typedef struct
     Uint32 flags;
     V2 p; // position of center
     V2 dp; // change of p
-    V2 dim; // collision dim
-    float rotation; // collision rotation, in turns; 1.0 == 360 degrees
-    ColorF color;
     V2 prev_p; // position from the last frame
+
+    // collision
+    V2 collision_offset;
+    V2 collision_dim;
+    float collision_rotation; // in turns; 1.0 == 360 degrees
 
     // calculated after applying rotation
     V2 collision_normals[4]; // right, top, left, bottom
     V2 collision_vertices[4]; // bottom-left, bottom-right, top-left, top-right
 
+    // visuals
+    ColorF color;
     Uint32 sprite_id;
     float sprite_rotation;
     float sprite_scale;

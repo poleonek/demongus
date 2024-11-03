@@ -15,8 +15,8 @@ static void Game_AdvanceSimulation(AppState *app)
     // animate special wall
     {
         Object *obj = Object_Get(app, app->special_wall);
-        obj->rotation = WrapF(0.f, 1.f, obj->rotation + app->dt);
-        obj->sprite_rotation = obj->rotation;
+        obj->collision_rotation = WrapF(0.f, 1.f, obj->collision_rotation + app->dt);
+        obj->sprite_rotation = obj->collision_rotation;
         Object_UpdateCollisionVerticesAndNormals(app, obj);
     }
 
@@ -336,11 +336,11 @@ static void Game_IssueDrawCommands(AppState *app)
                 memcpy(verts, obj->collision_vertices, sizeof(obj->collision_vertices));
                 Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
 
-                ColorF color = ColorF_RGBA(0, 1, 0.8f, 0.4f);
+                ColorF color = ColorF_RGBA(1, 0, 0.8f, 0.8f);
                 if (obj->has_collision)
                 {
-                    color.r = 1;
-                    color.a = 0.8f;
+                    color.g = 1;
+                    color.a = 1;
                 }
 
                 SDL_FColor fcolor = ColorF_To_SDL_FColor(color);
@@ -447,8 +447,8 @@ static void Game_Init(AppState *app)
         Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
         player->p.x = -1.f;
         float scale = 0.0175f;
-        player->dim.x = sprite_dude->tex->w * scale;
-        player->dim.y = (sprite_dude->tex->h / 4.f) * scale;
+        player->collision_dim.x = sprite_dude->tex->w * scale;
+        player->collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
         player->color = ColorF_RGB(1,1,1);
         //player->rotation = 0.3f;
         player->sprite_id = Sprite_IdFromPointer(app, sprite_dude);
@@ -458,8 +458,8 @@ static void Game_Init(AppState *app)
     {
         Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
         player->p.x = 3.f;
-        player->dim.x = 0.3f;
-        player->dim.y = 0.9f;
+        player->collision_dim.x = 0.3f;
+        player->collision_dim.y = 0.9f;
         player->color = ColorF_RGB(0.4f, .4f, .94f);
         app->player_ids[1] = Object_IdFromPointer(app, player);
     }
@@ -476,7 +476,7 @@ static void Game_Init(AppState *app)
 
         {
             Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
-            rot_wall->rotation = rot_wall->sprite_rotation = 0.125f;
+            rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
         }
         {
             float px_x = sprite_ref->tex->w;
@@ -484,7 +484,7 @@ static void Game_Init(AppState *app)
             float scale = 0.035f;
             Object *ref_wall = Object_Wall(app, (V2){0, off*0.5f}, (V2){px_x*scale, px_y*scale});
             ref_wall->color = ColorF_RGBA(1,1,1,1);
-            ref_wall->rotation = ref_wall->sprite_rotation = -0.125f;
+            ref_wall->collision_rotation = ref_wall->sprite_rotation = -0.125f;
             ref_wall->sprite_id = Sprite_IdFromPointer(app, sprite_ref);
         }
         {
@@ -493,13 +493,16 @@ static void Game_Init(AppState *app)
             float scale = 0.015f;
             Object *crate_wall = Object_Wall(app, (V2){0, -off*0.5f},
                                              (V2){px_x*scale, px_y*scale});
+
+
+            crate_wall->collision_offset = (V2){0.f, -0.1f};
+            crate_wall->collision_rotation = 0.125f;
             crate_wall->color = ColorF_RGBA(1,1,1,1);
             crate_wall->sprite_id = Sprite_IdFromPointer(app, sprite_crate);
-            crate_wall->rotation = 0.125f;
         }
         {
             Object *rot_wall = Object_Wall(app, (V2){off,-off*2.f}, (V2){length*0.5f, thickness});
-            rot_wall->rotation = rot_wall->sprite_rotation = 0.125f;
+            rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
             app->special_wall = Object_IdFromPointer(app, rot_wall);
         }
     }
