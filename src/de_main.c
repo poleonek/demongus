@@ -53,7 +53,8 @@ static void Game_AdvanceSimulation(AppState *app)
         {
             obj->rotation -= period;
         }
-        Object_UpdateVerticesAndNormals(obj);
+        obj->sprite_rotation = obj->rotation;
+        Object_UpdateCollisionVerticesAndNormals(obj);
     }
 
     // player input
@@ -110,7 +111,7 @@ static void Game_AdvanceSimulation(AppState *app)
         if (!(obj->flags & ObjectFlag_Move)) continue;
 
         obj->p = V2_Add(obj->p, obj->dp);
-        Object_UpdateVerticesAndNormals(obj);
+        Object_UpdateCollisionVerticesAndNormals(obj);
 
         ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
@@ -211,7 +212,7 @@ static void Game_AdvanceSimulation(AppState *app)
                 if (move_out.x) obj->dp.x = 0;
                 if (move_out.y) obj->dp.y = 0;
 
-                Object_UpdateVerticesAndNormals(obj);
+                Object_UpdateCollisionVerticesAndNormals(obj);
             }
             else
             {
@@ -226,7 +227,7 @@ static void Game_AdvanceSimulation(AppState *app)
     ForU32(obj_id, app->object_count)
     {
         Object *obj = app->object_pool + obj_id;
-        if (!(obj->flags & ObjectFlag_AnimateSprite)) continue;
+        if (Sprite_Get(app, obj->sprite_id)->frame_count <= 1) continue;
 
         Uint32 frame_index_map[8] =
         {
@@ -316,9 +317,19 @@ static void Game_IssueDrawCommands(AppState *app)
         {
             Object *obj = app->object_pool + object_index;
 
+            if (obj->dirty_sprite_vertices)
+            {
+                Object_CalculateVerticesAndNormals(obj, true);
+            }
+
             V2 verts[4];
+#if 0
             static_assert(sizeof(verts) == sizeof(obj->collision_vertices));
             memcpy(verts, obj->collision_vertices, sizeof(obj->collision_vertices));
+#else
+            static_assert(sizeof(verts) == sizeof(obj->sprite_vertices));
+            memcpy(verts, obj->sprite_vertices, sizeof(obj->sprite_vertices));
+#endif
             Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
@@ -370,9 +381,7 @@ static void Game_IssueDrawCommands(AppState *app)
                 ColorF color = ColorF_RGBA(0, 1, 0.8f, 0.4f);
                 if (obj->has_collision)
                 {
-                    color.r = SqrtF(color.r);
-                    color.g = SqrtF(color.g);
-                    color.b = SqrtF(color.b);
+                    color.r = 1;
                     color.a = 0.8f;
                 }
 
@@ -509,7 +518,7 @@ static void Game_Init(AppState *app)
 
         {
             Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
-            rot_wall->rotation = 0.125f;
+            rot_wall->rotation = rot_wall->sprite_rotation = 0.125f;
         }
         {
             float px_x = sprite_ref->tex->w;
@@ -517,6 +526,7 @@ static void Game_Init(AppState *app)
             float scale = 0.035f;
             Object *ref_wall = Object_Wall(app, (V2){0, off*0.5f}, (V2){px_x*scale, px_y*scale});
             ref_wall->color = ColorF_RGBA(1,1,1,1);
+            ref_wall->rotation = ref_wall->sprite_rotation = -0.125f;
             ref_wall->sprite_id = Sprite_IdFromPointer(app, sprite_ref);
         }
         {
@@ -530,7 +540,7 @@ static void Game_Init(AppState *app)
         }
         {
             Object *rot_wall = Object_Wall(app, (V2){off,-off*2.f}, (V2){length*0.5f, thickness});
-            rot_wall->rotation = 0.125f;
+            rot_wall->rotation = rot_wall->sprite_rotation = 0.125f;
             app->special_wall = Object_IdFromPointer(app, rot_wall);
         }
     }
@@ -539,6 +549,6 @@ static void Game_Init(AppState *app)
     ForU32(obj_id, app->object_count)
     {
         Object *obj = app->object_pool + obj_id;
-        Object_UpdateVerticesAndNormals(obj);
+        Object_UpdateCollisionVerticesAndNormals(obj);
     }
 }

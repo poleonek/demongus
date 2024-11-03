@@ -19,7 +19,6 @@ typedef enum {
     ObjectFlag_Draw          = (1 << 0),
     ObjectFlag_Move          = (1 << 1),
     ObjectFlag_Collide       = (1 << 2),
-    ObjectFlag_AnimateSprite = (1 << 3),
 } ObjectFlags;
 
 typedef struct
@@ -37,9 +36,13 @@ typedef struct
     V2 collision_vertices[4]; // bottom-left, bottom-right, top-left, top-right
 
     Uint32 sprite_id;
-    Uint32 sprite_frame_index;
-    Uint32 sprite_animation_index;
+    float sprite_rotation;
+    bool dirty_sprite_vertices;
+    V2 sprite_vertices[4];
+
     float sprite_animation_t;
+    Uint32 sprite_animation_index;
+    Uint32 sprite_frame_index;
 
     // temp
     bool has_collision;
@@ -86,8 +89,8 @@ typedef struct
         bool paused_frame;
 
         bool draw_collision_box;
-        Uint32 collision_sprite_frame_index;
         float collision_sprite_animation_t;
+        Uint32 collision_sprite_frame_index;
 
         bool draw_texture_box;
     } debug;

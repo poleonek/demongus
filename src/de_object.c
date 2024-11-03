@@ -80,35 +80,48 @@ static CollisionProjectionResult Object_CollisionProjection(Object *obj_normals,
     return result;
 }
 
-static void Object_UpdateVerticesAndNormals(Object *obj)
+static void Object_CalculateVerticesAndNormals(Object *obj, bool update_sprite)
+{
+    float rotation = (update_sprite ? obj->sprite_rotation : obj->rotation);
+    // @todo turns -> radians
+    float s = SinF(rotation);
+    float c = CosF(rotation);
+
+    if (!update_sprite)
+    {
+        obj->collision_normals[0] = (V2){ c,  s}; // RIGHT
+        obj->collision_normals[1] = (V2){-s,  c}; // TOP
+        obj->collision_normals[2] = (V2){-c, -s}; // LEFT
+        obj->collision_normals[3] = (V2){ s, -c}; // BOTTOM
+    }
+
+    static_assert(sizeof(obj->sprite_vertices) == sizeof(obj->collision_vertices));
+    V2 *verts = (update_sprite ? obj->sprite_vertices : obj->collision_vertices);
+    size_t vert_count = ArrayCount(obj->collision_vertices);
+
+    V2 half = V2_Scale(obj->dim, 0.5f);
+    verts[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
+    verts[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
+    verts[2] = (V2){-half.x,  half.y}; // TOP-LEFT
+    verts[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
+
+    ForU32(i, vert_count)
+    {
+        V2 vert = verts[i];
+
+        verts[i].x = vert.x * c - vert.y * s;
+        verts[i].y = vert.x * s + vert.y * c;
+
+        verts[i].x += obj->p.x;
+        verts[i].y += obj->p.y;
+    }
+}
+
+static void Object_UpdateCollisionVerticesAndNormals(Object *obj)
 {
     // @todo This function should be called automatically?
     //       We should add some asserts and checks to make sure
     //       that we aren't using stale vertices & normals
-
-    float rotation = obj->rotation; // @todo turns -> radians
-    float s = SinF(rotation);
-    float c = CosF(rotation);
-
-    obj->collision_normals[0] = (V2){ c,  s}; // RIGHT
-    obj->collision_normals[1] = (V2){-s,  c}; // TOP
-    obj->collision_normals[2] = (V2){-c, -s}; // LEFT
-    obj->collision_normals[3] = (V2){ s, -c}; // BOTTOM
-
-    V2 half = V2_Scale(obj->dim, 0.5f);
-    obj->collision_vertices[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
-    obj->collision_vertices[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
-    obj->collision_vertices[2] = (V2){-half.x,  half.y}; // TOP-LEFT
-    obj->collision_vertices[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
-
-    ForArray(i, obj->collision_vertices)
-    {
-        V2 vert = obj->collision_vertices[i];
-
-        obj->collision_vertices[i].x = vert.x * c - vert.y * s;
-        obj->collision_vertices[i].y = vert.x * s + vert.y * c;
-
-        obj->collision_vertices[i].x += obj->p.x;
-        obj->collision_vertices[i].y += obj->p.y;
-    }
+    obj->dirty_sprite_vertices = true;
+    Object_CalculateVerticesAndNormals(obj, false);
 }
