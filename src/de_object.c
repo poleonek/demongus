@@ -17,6 +17,7 @@ static Uint32 Object_IdFromPointer(AppState *app, Object *obj)
 {
     size_t byte_delta = (size_t)obj - (size_t)app->object_pool;
     size_t id = byte_delta / sizeof(*obj);
+    Assert(id < ArrayCount(app->object_pool));
     return (Uint32)id;
 }
 

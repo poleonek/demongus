@@ -9,10 +9,17 @@ static Axis2 Axis2_Other(Axis2 axis)
     return (axis == Axis2_X ? Axis2_Y : Axis2_X);
 }
 
+typedef struct
+{
+    SDL_Texture *tex;
+    Uint32 frame_count;
+} Sprite;
+
 typedef enum {
-    ObjectFlag_Draw    = (1 << 0),
-    ObjectFlag_Move    = (1 << 1),
-    ObjectFlag_Collide = (1 << 2),
+    ObjectFlag_Draw          = (1 << 0),
+    ObjectFlag_Move          = (1 << 1),
+    ObjectFlag_Collide       = (1 << 2),
+    ObjectFlag_AnimateSprite = (1 << 3),
 } ObjectFlags;
 
 typedef struct
@@ -29,13 +36,13 @@ typedef struct
     V2 collision_normals[4]; // right, top, left, bottom
     V2 collision_vertices[4]; // bottom-left, bottom-right, top-left, top-right
 
+    Uint32 sprite_id;
+    Uint32 sprite_frame_index;
+    Uint32 sprite_animation_index;
+    float sprite_animation_t;
+
     // temp
     bool has_collision;
-    SDL_Texture *texture;
-    Uint32 texture_frame_count;
-    Uint32 texture_frame_index;
-    Uint32 animation_frame;
-    float anim_t;
 } Object;
 
 typedef struct
@@ -60,6 +67,11 @@ typedef struct
     Uint32 player_ids[2];
     Uint32 special_wall;
 
+    // sprites
+    Sprite sprite_pool[32];
+    Uint32 sprite_count;
+    Uint32 sprite_overlay_id;
+
     // camera
     V2 camera_p;
     // :: camera_range ::
@@ -74,7 +86,8 @@ typedef struct
         bool paused_frame;
 
         bool draw_collision_box;
-        float collision_color_t;
+        Uint32 collision_sprite_frame_index;
+        float collision_sprite_animation_t;
 
         bool draw_texture_box;
     } debug;
