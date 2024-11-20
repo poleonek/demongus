@@ -51,7 +51,7 @@ if [ -v sdl ]; then
         # @todo(mg): pass gcc/clang flag to SDL (is that even possible?)
         cd libs/SDL
         cmake -S . -B build -DSDL_SHARED=OFF -DSDL_STATIC=ON && cmake --build build
-        cd ..
+        cd ../../
     else
         echo "SDL directory not found! Make sure to initialize git submodules."
     fi
