@@ -40,8 +40,8 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
     Object *obj = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Collide);
     obj->p = p;
 
-    obj->vertices_relative_to_p[0] = (V2){obj->p.x + dim.x / 2, obj->p.y - dim.y / 2};
-    obj->vertices_relative_to_p[1] = (V2){obj->p.x - dim.x / 2, obj->p.y - dim.y / 2};
+    obj->vertices_relative_to_p[0] = (V2){obj->p.x - dim.x / 2, obj->p.y - dim.y / 2};
+    obj->vertices_relative_to_p[1] = (V2){obj->p.x + dim.x / 2, obj->p.y - dim.y / 2};
     obj->vertices_relative_to_p[2] = (V2){obj->p.x + dim.x / 2, obj->p.y + dim.y / 2};
     obj->vertices_relative_to_p[3] = (V2){obj->p.x - dim.x / 2, obj->p.y + dim.y / 2};
 

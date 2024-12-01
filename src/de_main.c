@@ -300,6 +300,7 @@ static void Game_IssueDrawCommands(AppState *app)
                 sdl_verts[i].position = V2_To_SDL_FPoint(verts[i]);
                 sdl_verts[i].color = fcolor;
             }
+            Swap(sdl_verts[0], sdl_verts[1]); // SDL orders vertices differently
 
             Sprite *sprite = Sprite_Get(app, obj->sprite_id);
             {
@@ -353,6 +354,7 @@ static void Game_IssueDrawCommands(AppState *app)
                     sdl_verts[i].position = V2_To_SDL_FPoint(verts[i]);
                     sdl_verts[i].color = fcolor;
                 }
+                Swap(sdl_verts[0], sdl_verts[1]); // SDL orders vertices differently
 
                 Sprite *sprite = Sprite_Get(app, app->sprite_overlay_id);
                 {
@@ -450,8 +452,8 @@ static void Game_Init(AppState *app)
         V2 collision_dim = {0};
         collision_dim.x = sprite_dude->tex->w * scale;
         collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
-        player->vertices_relative_to_p[0] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-        player->vertices_relative_to_p[1] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->vertices_relative_to_p[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->color = ColorF_RGB(1,1,1);
@@ -466,8 +468,8 @@ static void Game_Init(AppState *app)
         V2 collision_dim = {0};
         collision_dim.x = 0.3f;
         collision_dim.y = 0.9f;
-        player->vertices_relative_to_p[0] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-        player->vertices_relative_to_p[1] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->vertices_relative_to_p[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->color = ColorF_RGB(0.4f, .4f, .94f);
