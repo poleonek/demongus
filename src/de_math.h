@@ -121,7 +121,6 @@ static V2 V2_Rotate90(V2 a)
 }
 static V2 V2_CalculateNormal(V2 a, V2 b)
 {
-    Assert(a.x != b.x || a.y != b.y);
     // Place vertex a at (0, 0) (turns line a--b into a vector).
     V2 vec = V2_Sub(b, a);
     // Make a direction vector out of it.

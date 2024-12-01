@@ -445,10 +445,15 @@ static void Game_Init(AppState *app)
     // add player
     {
         Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
-        player->p.x = -1.f;
+        player->p.x = -0.f;
         float scale = 0.0175f;
-        player->collision_dim.x = sprite_dude->tex->w * scale;
-        player->collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
+        V2 collision_dim = {0};
+        collision_dim.x = sprite_dude->tex->w * scale;
+        collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
+        player->vertices_relative_to_p[0] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p[1] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
+        player->vertices_relative_to_p[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->color = ColorF_RGB(1,1,1);
         //player->rotation = 0.3f;
         player->sprite_id = Sprite_IdFromPointer(app, sprite_dude);
@@ -458,8 +463,13 @@ static void Game_Init(AppState *app)
     {
         Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
         player->p.x = 3.f;
-        player->collision_dim.x = 0.3f;
-        player->collision_dim.y = 0.9f;
+        V2 collision_dim = {0};
+        collision_dim.x = 0.3f;
+        collision_dim.y = 0.9f;
+        player->vertices_relative_to_p[0] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p[1] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
+        player->vertices_relative_to_p[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->color = ColorF_RGB(0.4f, .4f, .94f);
         app->player_ids[1] = Object_IdFromPointer(app, player);
     }
@@ -495,7 +505,6 @@ static void Game_Init(AppState *app)
                                              (V2){px_x*scale, px_y*scale});
 
 
-            crate_wall->collision_offset = (V2){0.f, -0.1f};
             crate_wall->collision_rotation = 0.125f;
             crate_wall->color = ColorF_RGBA(1,1,1,1);
             crate_wall->sprite_id = Sprite_IdFromPointer(app, sprite_crate);

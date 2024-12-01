@@ -1,3 +1,4 @@
+#include <SDL3/SDL_stdinc.h>
 static Object *Object_Get(AppState *app, Uint32 id)
 {
     Assert(app->object_count < ArrayCount(app->object_pool));
@@ -38,7 +39,11 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
 {
     Object *obj = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Collide);
     obj->p = p;
-    obj->collision_dim = dim;
+
+    obj->vertices_relative_to_p[0] = (V2){obj->p.x + dim.x / 2, obj->p.y - dim.y / 2};
+    obj->vertices_relative_to_p[1] = (V2){obj->p.x - dim.x / 2, obj->p.y - dim.y / 2};
+    obj->vertices_relative_to_p[2] = (V2){obj->p.x + dim.x / 2, obj->p.y + dim.y / 2};
+    obj->vertices_relative_to_p[3] = (V2){obj->p.x - dim.x / 2, obj->p.y + dim.y / 2};
 
     static float r = 0.f;
     static float g = 0.5f;
@@ -101,7 +106,7 @@ static V2 Object_GetDrawDim(AppState *app, Object *obj)
     }
     else
     {
-        return obj->collision_dim;
+        return (V2){0};
     }
 }
 
@@ -113,39 +118,28 @@ static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool 
     float s = SinF(rotation * 2.f*SDL_PI_F);
     float c = CosF(rotation * 2.f*SDL_PI_F);
 
-    if (!update_sprite)
     {
-        obj->collision_normals[0] = (V2){ c,  s}; // RIGHT
-        obj->collision_normals[1] = (V2){-s,  c}; // TOP
-        obj->collision_normals[2] = (V2){-c, -s}; // LEFT
-        obj->collision_normals[3] = (V2){ s, -c}; // BOTTOM
+        static_assert(sizeof(obj->sprite_vertices) == sizeof(obj->collision_vertices));
+        V2 *verts = (update_sprite ? obj->sprite_vertices : obj->collision_vertices);
+        size_t vert_count = ArrayCount(obj->collision_vertices);
+
+        ForU32(i, vert_count)
+        {
+            verts[i].x = obj->vertices_relative_to_p[i].x + obj->p.x;
+            verts[i].y = obj->vertices_relative_to_p[i].y + obj->p.y;
+        }
     }
 
-    static_assert(sizeof(obj->sprite_vertices) == sizeof(obj->collision_vertices));
-    V2 *verts = (update_sprite ? obj->sprite_vertices : obj->collision_vertices);
-    size_t vert_count = ArrayCount(obj->collision_vertices);
-
-    V2 dim = (update_sprite ? Object_GetDrawDim(app, obj) : obj->collision_dim);
-    V2 half = V2_Scale(dim, 0.5f);
-    verts[0] = (V2){-half.x, -half.y}; // BOTTOM-LEFT
-    verts[1] = (V2){ half.x, -half.y}; // BOTTOM-RIGHT
-    verts[2] = (V2){-half.x,  half.y}; // TOP-LEFT
-    verts[3] = (V2){ half.x,  half.y}; // TOP-RIGHT
-
-    ForU32(i, vert_count)
+    if (!update_sprite)
     {
-        V2 vert = verts[i];
+        Uint8 vert_count = ArrayCount(obj->collision_vertices);
+        V2* verts = obj->collision_vertices;
 
-        verts[i].x = vert.x * c - vert.y * s;
-        verts[i].y = vert.x * s + vert.y * c;
-
-        verts[i].x += obj->p.x;
-        verts[i].y += obj->p.y;
-
-        if (!update_sprite)
+        // calculate last normal
+        obj->collision_normals[vert_count - 1] = V2_CalculateNormal(verts[vert_count - 1], verts[0]);
+        ForU32(vert_id, vert_count - 1) // calculate the rest
         {
-            verts[i].x += obj->collision_offset.x;
-            verts[i].y += obj->collision_offset.y;
+            obj->collision_normals[vert_id] = V2_CalculateNormal(verts[vert_id], verts[vert_id + 1]);
         }
     }
 }

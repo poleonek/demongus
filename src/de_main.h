@@ -33,12 +33,10 @@ typedef struct
     V2 dp; // change of p
     V2 prev_p; // position from the last frame
 
-    // collision
-    V2 collision_offset;
-    V2 collision_dim;
-    float collision_rotation; // in turns; 1.0 == 360 degrees
-
+    float collision_rotation;
     // calculated after applying rotation
+    Uint8 num_vertices; // @todo(poleonek) allow other numbers than 4
+    V2 vertices_relative_to_p[4]; // constant after init
     V2 collision_normals[4]; // right, top, left, bottom
     V2 collision_vertices[4]; // bottom-left, bottom-right, top-left, top-right
 
