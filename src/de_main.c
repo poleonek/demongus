@@ -300,7 +300,6 @@ static void Game_IssueDrawCommands(AppState *app)
                 sdl_verts[i].position = V2_To_SDL_FPoint(verts[i]);
                 sdl_verts[i].color = fcolor;
             }
-            Swap(sdl_verts[0], sdl_verts[1]); // SDL orders vertices differently
 
             Sprite *sprite = Sprite_Get(app, obj->sprite_id);
             {
@@ -313,13 +312,13 @@ static void Game_IssueDrawCommands(AppState *app)
                     tex_y0 = frame_index * tex_height;
                     tex_y1 = tex_y0 + tex_height;
                 }
-                sdl_verts[0].tex_coord = (SDL_FPoint){0, tex_y1};
-                sdl_verts[1].tex_coord = (SDL_FPoint){1, tex_y1};
+                sdl_verts[0].tex_coord = (SDL_FPoint){1, tex_y1};
+                sdl_verts[1].tex_coord = (SDL_FPoint){0, tex_y1};
                 sdl_verts[2].tex_coord = (SDL_FPoint){0, tex_y0};
                 sdl_verts[3].tex_coord = (SDL_FPoint){1, tex_y0};
             }
 
-            int indices[] = { 0, 1, 2, 2, 3, 1 };
+            int indices[] = { 0, 1, 2, 0, 3, 2 };
             SDL_RenderGeometry(app->renderer, sprite->tex,
                                sdl_verts, ArrayCount(sdl_verts),
                                indices, ArrayCount(indices));
@@ -354,7 +353,6 @@ static void Game_IssueDrawCommands(AppState *app)
                     sdl_verts[i].position = V2_To_SDL_FPoint(verts[i]);
                     sdl_verts[i].color = fcolor;
                 }
-                Swap(sdl_verts[0], sdl_verts[1]); // SDL orders vertices differently
 
                 Sprite *sprite = Sprite_Get(app, app->sprite_overlay_id);
                 {
@@ -367,13 +365,13 @@ static void Game_IssueDrawCommands(AppState *app)
                         tex_y0 = frame_index * tex_height;
                         tex_y1 = tex_y0 + tex_height;
                     }
-                    sdl_verts[0].tex_coord = (SDL_FPoint){0, tex_y1};
-                    sdl_verts[1].tex_coord = (SDL_FPoint){1, tex_y1};
+                    sdl_verts[0].tex_coord = (SDL_FPoint){1, tex_y1};
+                    sdl_verts[1].tex_coord = (SDL_FPoint){0, tex_y1};
                     sdl_verts[2].tex_coord = (SDL_FPoint){0, tex_y0};
                     sdl_verts[3].tex_coord = (SDL_FPoint){1, tex_y0};
                 }
 
-                int indices[] = { 0, 1, 2, 2, 3, 1 };
+                int indices[] = { 0, 1, 2, 0, 3, 2 };
                 SDL_RenderGeometry(app->renderer, sprite->tex,
                                    sdl_verts, ArrayCount(sdl_verts),
                                    indices, ArrayCount(indices));
