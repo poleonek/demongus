@@ -84,6 +84,10 @@ static V2 V2_Mul(V2 a, V2 b)
 {
     return (V2){a.x * b.x, a.y * b.y};
 }
+static V2 V2_Reverse(V2 a)
+{
+    return (V2){-a.x, -a.y};
+}
 static float V2_Inner(V2 a, V2 b)
 {
     return a.x*b.x + a.y*b.y;
@@ -142,6 +146,13 @@ static float RngF_MaxDistance(RngF a, RngF b)
     float d0 = b.min - a.max;
     float d1 = a.min - b.max;
     return Max(d0, d1);
+}
+
+static float signum(float a)
+{
+    if (a < 0)
+        return -1;
+    return 1;
 }
 
 // ---

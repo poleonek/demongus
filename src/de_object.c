@@ -40,10 +40,10 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
     Object *obj = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Collide);
     obj->p = p;
 
-    obj->vertices_relative_to_p[0] = (V2){obj->p.x - dim.x / 2, obj->p.y - dim.y / 2};
-    obj->vertices_relative_to_p[1] = (V2){obj->p.x + dim.x / 2, obj->p.y - dim.y / 2};
-    obj->vertices_relative_to_p[2] = (V2){obj->p.x + dim.x / 2, obj->p.y + dim.y / 2};
-    obj->vertices_relative_to_p[3] = (V2){obj->p.x - dim.x / 2, obj->p.y + dim.y / 2};
+    obj->vertices_relative_to_p.arr[0] = (V2){obj->p.x - dim.x / 2, obj->p.y - dim.y / 2};
+    obj->vertices_relative_to_p.arr[1] = (V2){obj->p.x + dim.x / 2, obj->p.y - dim.y / 2};
+    obj->vertices_relative_to_p.arr[2] = (V2){obj->p.x + dim.x / 2, obj->p.y + dim.y / 2};
+    obj->vertices_relative_to_p.arr[3] = (V2){obj->p.x - dim.x / 2, obj->p.y + dim.y / 2};
 
     static float r = 0.f;
     static float g = 0.5f;
@@ -61,21 +61,21 @@ typedef struct
     RngF arr[4];
 } CollisionProjectionResult;
 
-static CollisionProjectionResult Object_CollisionProjection(Object *obj_normals, Object *obj_verts)
+static CollisionProjectionResult Object_CollisionProjection(Normals obj_normals, Vertices obj_verts)
 {
     CollisionProjectionResult result = {0};
-    static_assert(ArrayCount(result.arr) == ArrayCount(obj_normals->collision_normals));
+    static_assert(ArrayCount(result.arr) == ArrayCount(obj_normals.arr));
 
-    ForArray(normal_index, obj_normals->collision_normals)
+    ForArray(normal_index, obj_normals.arr)
     {
         RngF *sat = result.arr + normal_index;
         sat->min = FLT_MAX;
         sat->max = -FLT_MAX;
-        V2 normal = obj_normals->collision_normals[normal_index];
+        V2 normal = obj_normals.arr[normal_index];
 
-        ForArray(vert_index, obj_verts->collision_vertices)
+        ForArray(vert_index, obj_verts.arr)
         {
-            V2 vert = obj_verts->collision_vertices[vert_index];
+            V2 vert = obj_verts.arr[vert_index];
 
             float inner = V2_Inner(normal, vert);
             sat->min = Min(inner, sat->min);
@@ -119,27 +119,27 @@ static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool 
     float c = CosF(rotation * 2.f*SDL_PI_F);
 
     {
-        static_assert(sizeof(obj->sprite_vertices) == sizeof(obj->collision_vertices));
-        V2 *verts = (update_sprite ? obj->sprite_vertices : obj->collision_vertices);
-        size_t vert_count = ArrayCount(obj->collision_vertices);
+        static_assert(sizeof(obj->sprite_vertices.arr) == sizeof(obj->collision_vertices.arr));
+        V2 *verts = (update_sprite ? obj->sprite_vertices.arr : obj->collision_vertices.arr);
+        size_t vert_count = ArrayCount(obj->collision_vertices.arr);
 
         ForU32(i, vert_count)
         {
-            verts[i].x = obj->vertices_relative_to_p[i].x + obj->p.x;
-            verts[i].y = obj->vertices_relative_to_p[i].y + obj->p.y;
+            verts[i].x = obj->vertices_relative_to_p.arr[i].x + obj->p.x;
+            verts[i].y = obj->vertices_relative_to_p.arr[i].y + obj->p.y;
         }
     }
 
     if (!update_sprite)
     {
-        Uint8 vert_count = ArrayCount(obj->collision_vertices);
-        V2* verts = obj->collision_vertices;
+        Uint8 vert_count = ArrayCount(obj->collision_vertices.arr);
+        V2* verts = obj->collision_vertices.arr;
 
         // calculate last normal
-        obj->collision_normals[vert_count - 1] = V2_CalculateNormal(verts[vert_count - 1], verts[0]);
+        obj->collision_normals.arr[vert_count - 1] = V2_CalculateNormal(verts[vert_count - 1], verts[0]);
         ForU32(vert_id, vert_count - 1) // calculate the rest
         {
-            obj->collision_normals[vert_id] = V2_CalculateNormal(verts[vert_id], verts[vert_id + 1]);
+            obj->collision_normals.arr[vert_id] = V2_CalculateNormal(verts[vert_id], verts[vert_id + 1]);
         }
     }
 }
