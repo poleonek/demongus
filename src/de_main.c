@@ -78,8 +78,6 @@ static void Game_AdvanceSimulation(AppState *app)
 
         ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
-            CollisionProjectionResult minmax_obj_obj = Object_CollisionProjection(obj, obj);
-
             Uint32 closest_obstacle_id = 0;
             float closest_obstacle_separation_dist = FLT_MAX;
             V2 closest_obstacle_wall_normal = {0};
@@ -99,25 +97,34 @@ static void Game_AdvanceSimulation(AppState *app)
                 ForU32(sat_iteration, 2)
                 {
                     Object *normal_obj;
+                    Object *projected_obstacle;
                     CollisionProjectionResult a;
                     CollisionProjectionResult b;
                     if (sat_iteration == 0)
                     {
                         normal_obj = obj;
-                        a = minmax_obj_obj;
-                        b = Object_CollisionProjection(normal_obj, obstacle);
+                        projected_obstacle = obstacle;
                     }
                     else
                     {
                         normal_obj = obstacle;
-                        a = Object_CollisionProjection(normal_obj, obstacle); // @speed(mg) we could cache these per object
-                        b = Object_CollisionProjection(normal_obj, obj);
+                        projected_obstacle = obj;
                     }
+
+                    a = Object_CollisionProjection(normal_obj->collision_normals, normal_obj->collision_vertices); // @speed(mg) we could cache these per object
+                    b = Object_CollisionProjection(normal_obj->collision_normals, projected_obstacle->collision_vertices);
 
                     ForArray(i, a.arr)
                     {
-                        static_assert(ArrayCount(a.arr) == ArrayCount(obj->collision_normals));
-                        V2 normal = normal_obj->collision_normals[i];
+                        static_assert(ArrayCount(a.arr) == ArrayCount(obj->collision_normals.arr));
+                        V2 normal = normal_obj->collision_normals.arr[i];
+                        // @todo(poleonek): using the 0th vertex here doesn't always work for calculating vertices correctly.
+                        //                  Maybe we should calculate the average of all vertices' positions instead?
+                        V2 obstacle_dir = V2_Sub(projected_obstacle->collision_vertices.arr[0], normal_obj->collision_vertices.arr[0]);
+                        if (V2_Inner(normal, obstacle_dir) < 0) // normal doesn't point in obstacle's v0 general direction.
+                        {
+                            continue;
+                        }
 
                         float d = RngF_MaxDistance(a.arr[i], b.arr[i]);
                         if (d > 0.f)
@@ -128,20 +135,12 @@ static void Game_AdvanceSimulation(AppState *app)
                             goto skip_this_obstacle;
                         }
 
-                        if (d > biggest_dist)
+                        // if closest walls are parallel we have to enter here twice to set the correct
+                        // direction in wich obj is pushed.
+                        if (d >= biggest_dist)
                         {
                             biggest_dist = d;
-                            wall_normal = normal;
-                        }
-                        else if (d == biggest_dist)
-                        {
-                            // @info(mg) Tie break for walls that are parallel (like in rectangles).
-                            //           We pick a normal from a wall that is facing the obj more.
-                            //           I have a suspicion that this branch could be avoided.
-                            V2 obj_dir = V2_Sub(obj->p, obstacle->p);
-                            float current_inner = V2_Inner(obj_dir, wall_normal);
-                            float new_inner = V2_Inner(obj_dir, normal);
-                            if (new_inner > current_inner)
+                            if (normal_obj == obstacle)
                             {
                                 wall_normal = normal;
                             }
@@ -286,8 +285,8 @@ static void Game_IssueDrawCommands(AppState *app)
             }
 
             V2 verts[4];
-            static_assert(sizeof(verts) == sizeof(obj->sprite_vertices));
-            memcpy(verts, obj->sprite_vertices, sizeof(obj->sprite_vertices));
+            static_assert(sizeof(verts) == sizeof(obj->sprite_vertices.arr));
+            memcpy(verts, obj->sprite_vertices.arr, sizeof(obj->sprite_vertices.arr));
             Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
@@ -312,13 +311,13 @@ static void Game_IssueDrawCommands(AppState *app)
                     tex_y0 = frame_index * tex_height;
                     tex_y1 = tex_y0 + tex_height;
                 }
-                sdl_verts[0].tex_coord = (SDL_FPoint){0, tex_y1};
-                sdl_verts[1].tex_coord = (SDL_FPoint){1, tex_y1};
+                sdl_verts[0].tex_coord = (SDL_FPoint){1, tex_y1};
+                sdl_verts[1].tex_coord = (SDL_FPoint){0, tex_y1};
                 sdl_verts[2].tex_coord = (SDL_FPoint){0, tex_y0};
                 sdl_verts[3].tex_coord = (SDL_FPoint){1, tex_y0};
             }
 
-            int indices[] = { 0, 1, 2, 2, 3, 1 };
+            int indices[] = { 0, 1, 2, 0, 3, 2 };
             SDL_RenderGeometry(app->renderer, sprite->tex,
                                sdl_verts, ArrayCount(sdl_verts),
                                indices, ArrayCount(indices));
@@ -332,8 +331,8 @@ static void Game_IssueDrawCommands(AppState *app)
                 if (!(obj->flags & ObjectFlag_Collide)) continue;
 
                 V2 verts[4];
-                static_assert(sizeof(verts) == sizeof(obj->collision_vertices));
-                memcpy(verts, obj->collision_vertices, sizeof(obj->collision_vertices));
+                static_assert(sizeof(verts) == sizeof(obj->collision_vertices.arr));
+                memcpy(verts, obj->collision_vertices.arr, sizeof(obj->collision_vertices.arr));
                 Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
 
                 ColorF color = ColorF_RGBA(1, 0, 0.8f, 0.8f);
@@ -365,13 +364,13 @@ static void Game_IssueDrawCommands(AppState *app)
                         tex_y0 = frame_index * tex_height;
                         tex_y1 = tex_y0 + tex_height;
                     }
-                    sdl_verts[0].tex_coord = (SDL_FPoint){0, tex_y1};
-                    sdl_verts[1].tex_coord = (SDL_FPoint){1, tex_y1};
+                    sdl_verts[0].tex_coord = (SDL_FPoint){1, tex_y1};
+                    sdl_verts[1].tex_coord = (SDL_FPoint){0, tex_y1};
                     sdl_verts[2].tex_coord = (SDL_FPoint){0, tex_y0};
                     sdl_verts[3].tex_coord = (SDL_FPoint){1, tex_y0};
                 }
 
-                int indices[] = { 0, 1, 2, 2, 3, 1 };
+                int indices[] = { 0, 1, 2, 0, 3, 2 };
                 SDL_RenderGeometry(app->renderer, sprite->tex,
                                    sdl_verts, ArrayCount(sdl_verts),
                                    indices, ArrayCount(indices));
@@ -445,24 +444,34 @@ static void Game_Init(AppState *app)
     // add player
     {
         Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
-        player->p.x = -1.f;
+        player->p.x = -0.f;
         float scale = 0.0175f;
-        player->collision_dim.x = sprite_dude->tex->w * scale;
-        player->collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
+        V2 collision_dim = {0};
+        collision_dim.x = sprite_dude->tex->w * scale;
+        collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
+        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->color = ColorF_RGB(1,1,1);
         //player->rotation = 0.3f;
         player->sprite_id = Sprite_IdFromPointer(app, sprite_dude);
         app->player_ids[0] = Object_IdFromPointer(app, player);
     }
-    // add player2
-    {
-        Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
-        player->p.x = 3.f;
-        player->collision_dim.x = 0.3f;
-        player->collision_dim.y = 0.9f;
-        player->color = ColorF_RGB(0.4f, .4f, .94f);
-        app->player_ids[1] = Object_IdFromPointer(app, player);
-    }
+    // // add player2
+    // {
+    //     Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
+    //     player->p.x = 3.f;
+    //     V2 collision_dim = {0};
+    //     collision_dim.x = 0.3f;
+    //     collision_dim.y = 0.9f;
+    //     player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+    //     player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+    //     player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
+    //     player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
+    //     player->color = ColorF_RGB(0.4f, .4f, .94f);
+    //     app->player_ids[1] = Object_IdFromPointer(app, player);
+    // }
 
     // add walls
     {
@@ -474,37 +483,36 @@ static void Game_Init(AppState *app)
         Object_Wall(app, (V2){0, off}, (V2){length, thickness});
         Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
 
-        {
-            Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
-            rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
-        }
-        {
-            float px_x = sprite_ref->tex->w;
-            float px_y = sprite_ref->tex->h;
-            float scale = 0.035f;
-            Object *ref_wall = Object_Wall(app, (V2){0, off*0.5f}, (V2){px_x*scale, px_y*scale});
-            ref_wall->color = ColorF_RGBA(1,1,1,1);
-            ref_wall->collision_rotation = ref_wall->sprite_rotation = -0.125f;
-            ref_wall->sprite_id = Sprite_IdFromPointer(app, sprite_ref);
-        }
-        {
-            float px_x = sprite_crate->tex->w;
-            float px_y = sprite_crate->tex->h;
-            float scale = 0.015f;
-            Object *crate_wall = Object_Wall(app, (V2){0, -off*0.5f},
-                                             (V2){px_x*scale, px_y*scale});
+        // {
+        //     Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
+        //     rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
+        // }
+        // {
+        //     float px_x = sprite_ref->tex->w;
+        //     float px_y = sprite_ref->tex->h;
+        //     float scale = 0.035f;
+        //     Object *ref_wall = Object_Wall(app, (V2){0, off*0.5f}, (V2){px_x*scale, px_y*scale});
+        //     ref_wall->color = ColorF_RGBA(1,1,1,1);
+        //     ref_wall->collision_rotation = ref_wall->sprite_rotation = -0.125f;
+        //     ref_wall->sprite_id = Sprite_IdFromPointer(app, sprite_ref);
+        // }
+        // {
+        //     float px_x = sprite_crate->tex->w;
+        //     float px_y = sprite_crate->tex->h;
+        //     float scale = 0.015f;
+        //     Object *crate_wall = Object_Wall(app, (V2){0, -off*0.5f},
+        //                                      (V2){px_x*scale, px_y*scale});
 
 
-            crate_wall->collision_offset = (V2){0.f, -0.1f};
-            crate_wall->collision_rotation = 0.125f;
-            crate_wall->color = ColorF_RGBA(1,1,1,1);
-            crate_wall->sprite_id = Sprite_IdFromPointer(app, sprite_crate);
-        }
-        {
-            Object *rot_wall = Object_Wall(app, (V2){off,-off*2.f}, (V2){length*0.5f, thickness});
-            rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
-            app->special_wall = Object_IdFromPointer(app, rot_wall);
-        }
+        //     crate_wall->collision_rotation = 0.125f;
+        //     crate_wall->color = ColorF_RGBA(1,1,1,1);
+        //     crate_wall->sprite_id = Sprite_IdFromPointer(app, sprite_crate);
+        // }
+        // {
+        //     Object *rot_wall = Object_Wall(app, (V2){off,-off*2.f}, (V2){length*0.5f, thickness});
+        //     rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
+        //     app->special_wall = Object_IdFromPointer(app, rot_wall);
+        // }
     }
 
     // initialize normals (for collision) and vertices (for collision & drawing)

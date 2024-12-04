@@ -2,5 +2,6 @@
 #define ForU32(I, Size) for (Uint32 I = 0; I < (Size); I += 1)
 #define ForU64(I, Size) for (Uint32 I = 0; I < (Size); I += 1)
 #define ForArray(I, Array) ForU64(I, ArrayCount(Array))
+#define Swap(a, b) do { typeof(a) tmp = a; a = b; b = tmp; } while (0)
 
 #define Assert(Expr) SDL_assert(Expr) // @todo(mg) this might be compiled out for release builds
