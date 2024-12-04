@@ -78,8 +78,6 @@ static void Game_AdvanceSimulation(AppState *app)
 
         ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
-            CollisionProjectionResult minmax_obj_obj = Object_CollisionProjection(obj->collision_normals, obj->collision_vertices);
-
             Uint32 closest_obstacle_id = 0;
             float closest_obstacle_separation_dist = FLT_MAX;
             V2 closest_obstacle_wall_normal = {0};
@@ -90,47 +88,6 @@ static void Game_AdvanceSimulation(AppState *app)
                 if (!(obstacle->flags & ObjectFlag_Collide)) continue;
                 if (obj == obstacle) continue;
 
-                //@todo(poleonek) refactor this garbage
-                // Conditions for obj's normals pointing in obstacle's general direction:
-                //     - LengthSq(obstacle->p - obj->p) >= LengthSq(obstacle->p - (obj->p + normal))
-                //     or
-                //     - Sign((obstacle->p - obj->p).x) == Sign((obstacle->p - (obj->p + normal)).y)
-                //     - Sign((obstacle->p - obj->p).y) == Sign((obstacle->p - (obj->p + normal)).y)
-                Normals obstacle_normals = {0};
-                Normals obj_normals = {0};
-                ForArray(normal_id, obj->collision_normals.arr)
-                {
-                    V2 normal = obj->collision_normals.arr[normal_id];
-                    if (V2_LengthSq(V2_Sub(obstacle->p, obj->p)) < V2_LengthSq(V2_Sub(obstacle->p, V2_Add(obj->p, normal))))
-                    {
-                        if (signum(V2_Sub(obstacle->p, obj->p).x) != signum(V2_Sub(obstacle->p, V2_Add(obj->p, normal)).x))
-                        {
-                            continue;
-                        }
-                        if (signum(V2_Sub(obstacle->p, obj->p).y) != signum(V2_Sub(obstacle->p, V2_Add(obj->p, normal)).y))
-                        {
-                            continue;
-                        }
-                    }
-                    obj_normals.arr[normal_id] = normal;
-                }
-                ForArray(normal_id, obstacle->collision_normals.arr)
-                {
-                    V2 normal = obstacle->collision_normals.arr[normal_id];
-                    if (V2_LengthSq(V2_Sub(obj->p, obstacle->p)) < V2_LengthSq(V2_Sub(obj->p, V2_Add(obstacle->p, normal))))
-                    {
-                        if (signum(V2_Sub(obj->p, obstacle->p).x) != signum(V2_Sub(obj->p, V2_Add(obstacle->p, normal)).x))
-                        {
-                            continue;
-                        }
-                        if (signum(V2_Sub(obj->p, obstacle->p).y) != signum(V2_Sub(obj->p, V2_Add(obstacle->p, normal)).y))
-                        {
-                            continue;
-                        }
-                    }
-                    obstacle_normals.arr[normal_id] = normal;
-                }
-
                 float biggest_dist = -FLT_MAX;
                 V2 wall_normal = {0};
 
@@ -140,26 +97,34 @@ static void Game_AdvanceSimulation(AppState *app)
                 ForU32(sat_iteration, 2)
                 {
                     Object *normal_obj;
+                    Object *projected_obstacle;
                     CollisionProjectionResult a;
                     CollisionProjectionResult b;
                     if (sat_iteration == 0)
                     {
                         normal_obj = obj;
-                        a = minmax_obj_obj;
-                        // b = Object_CollisionProjection(normal_obj->collision_normals, obstacle->collision_vertices);
-                        b = Object_CollisionProjection(obj_normals, obstacle->collision_vertices);
+                        projected_obstacle = obstacle;
                     }
                     else
                     {
                         normal_obj = obstacle;
-                        a = Object_CollisionProjection(obstacle_normals, obstacle->collision_vertices); // @speed(mg) we could cache these per object
-                        b = Object_CollisionProjection(obstacle_normals, obj->collision_vertices);
+                        projected_obstacle = obj;
                     }
+
+                    a = Object_CollisionProjection(normal_obj->collision_normals, normal_obj->collision_vertices); // @speed(mg) we could cache these per object
+                    b = Object_CollisionProjection(normal_obj->collision_normals, projected_obstacle->collision_vertices);
 
                     ForArray(i, a.arr)
                     {
                         static_assert(ArrayCount(a.arr) == ArrayCount(obj->collision_normals.arr));
                         V2 normal = normal_obj->collision_normals.arr[i];
+                        // @todo(poleonek): using the 0th vertex here doesn't always work for calculating vertices correctly.
+                        //                  Maybe we should calculate the average of all vertices' positions instead?
+                        V2 obstacle_dir = V2_Sub(projected_obstacle->collision_vertices.arr[0], normal_obj->collision_vertices.arr[0]);
+                        if (V2_Inner(normal, obstacle_dir) < 0) // normal doesn't point in obstacle's v0 general direction.
+                        {
+                            continue;
+                        }
 
                         float d = RngF_MaxDistance(a.arr[i], b.arr[i]);
                         if (d > 0.f)
@@ -170,20 +135,12 @@ static void Game_AdvanceSimulation(AppState *app)
                             goto skip_this_obstacle;
                         }
 
-                        if (d > biggest_dist)
+                        // if closest walls are parallel we have to enter here twice to set the correct
+                        // direction in wich obj is pushed.
+                        if (d >= biggest_dist)
                         {
                             biggest_dist = d;
-                            wall_normal = normal;
-                        }
-                        else if (d == biggest_dist)
-                        {
-                            // @info(mg) Tie break for walls that are parallel (like in rectangles).
-                            //           We pick a normal from a wall that is facing the obj more.
-                            //           I have a suspicion that this branch could be avoided.
-                            V2 obj_dir = V2_Sub(obj->p, obstacle->p);
-                            float current_inner = V2_Inner(obj_dir, wall_normal);
-                            float new_inner = V2_Inner(obj_dir, normal);
-                            if (new_inner > current_inner)
+                            if (normal_obj == obstacle)
                             {
                                 wall_normal = normal;
                             }
@@ -492,7 +449,8 @@ static void Game_Init(AppState *app)
         V2 collision_dim = {0};
         collision_dim.x = sprite_dude->tex->w * scale;
         collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
-        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x, player->p.y - collision_dim.y};
+        // player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
@@ -522,9 +480,9 @@ static void Game_Init(AppState *app)
         float length = 7.5f;
         float off = length*0.5f - thickness*0.5f;
         Object_Wall(app, (V2){off, 0}, (V2){thickness, length});
-        // Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
-        // Object_Wall(app, (V2){0, off}, (V2){length, thickness});
-        // Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
+        Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
+        Object_Wall(app, (V2){0, off}, (V2){length, thickness});
+        Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
 
         // {
         //     Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
