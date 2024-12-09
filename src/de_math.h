@@ -123,6 +123,21 @@ static V2 V2_Rotate90(V2 a)
 
     return (V2){x_prim, y_prim};
 }
+static V2 V2_Rotate(V2 a, float rot)
+{
+    // Ideally we would have custom made sin/cos that work with turns
+    // turns -> * pi -> radians
+    float sin = SinF(rot * 2.f*SDL_PI_F);
+    float cos = CosF(rot * 2.f*SDL_PI_F);
+
+    // rotation matrix
+    // [ cos(rot2pi) -sin(rot2pi) ] [ x ]
+    // [ sin(rot2pi)  cos(rot2pi) ] [ y ]
+    float x_prim = V2_Inner((V2){cos, -sin}, a);
+    float y_prim = V2_Inner((V2){sin,  cos}, a);
+
+    return (V2){x_prim, y_prim};
+}
 static V2 V2_CalculateNormal(V2 a, V2 b)
 {
     // Place vertex a at (0, 0) (turns line a--b into a vector).

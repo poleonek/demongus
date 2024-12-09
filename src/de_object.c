@@ -35,11 +35,28 @@ static Object *Object_Create(AppState *app, Uint32 flags)
     return obj;
 }
 
+static V2 Object_GetAvgCollisionPos(Object* obj)
+{
+    float x_sum = 0.0f;
+    float y_sum = 0.0f;
+    ForArray(i, obj->collision_vertices.arr)
+    {
+        x_sum += obj->collision_vertices.arr[i].x;
+        y_sum += obj->collision_vertices.arr[i].y;
+    }
+    V2 collision_avg = {0};
+    collision_avg.x = x_sum / ArrayCount(obj->collision_vertices.arr);
+    collision_avg.y = y_sum / ArrayCount(obj->collision_vertices.arr);
+
+    return collision_avg;
+}
+
 static Object *Object_Wall(AppState *app, V2 p, V2 dim)
 {
     Object *obj = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Collide);
     obj->p = p;
 
+    obj->collision_rotation = 0.125f;
     obj->vertices_relative_to_p.arr[0] = (V2){obj->p.x - dim.x, obj->p.y - dim.y};
     // obj->vertices_relative_to_p.arr[0] = (V2){obj->p.x - dim.x / 2, obj->p.y - dim.y / 2};
     obj->vertices_relative_to_p.arr[1] = (V2){obj->p.x + dim.x / 2, obj->p.y - dim.y / 2};
@@ -114,10 +131,6 @@ static V2 Object_GetDrawDim(AppState *app, Object *obj)
 static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool update_sprite)
 {
     float rotation = (update_sprite ? obj->sprite_rotation : obj->collision_rotation);
-    // Ideally we would have custom made sin/cos that work with turns
-    // turns -> * pi -> radians
-    float s = SinF(rotation * 2.f*SDL_PI_F);
-    float c = CosF(rotation * 2.f*SDL_PI_F);
 
     {
         static_assert(sizeof(obj->sprite_vertices.arr) == sizeof(obj->collision_vertices.arr));
@@ -126,8 +139,11 @@ static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool 
 
         ForU32(i, vert_count)
         {
-            verts[i].x = obj->vertices_relative_to_p.arr[i].x + obj->p.x;
-            verts[i].y = obj->vertices_relative_to_p.arr[i].y + obj->p.y;
+            V2 vertRel = obj->vertices_relative_to_p.arr[i];
+            V2 rotated = V2_Rotate(vertRel, rotation);
+            V2 moved = V2_Add(rotated, obj->p);
+            verts[i].x = moved.x;
+            verts[i].y = moved.y;
         }
     }
 

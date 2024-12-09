@@ -118,10 +118,11 @@ static void Game_AdvanceSimulation(AppState *app)
                     {
                         static_assert(ArrayCount(a.arr) == ArrayCount(obj->collision_normals.arr));
                         V2 normal = normal_obj->collision_normals.arr[i];
-                        // @todo(poleonek): using the 0th vertex here doesn't always work for calculating vertices correctly.
-                        //                  Maybe we should calculate the average of all vertices' positions instead?
-                        V2 obstacle_dir = V2_Sub(projected_obstacle->collision_vertices.arr[0], normal_obj->collision_vertices.arr[0]);
-                        if (V2_Inner(normal, obstacle_dir) < 0) // normal doesn't point in obstacle's v0 general direction.
+
+                        V2 obj_col = Object_GetAvgCollisionPos(normal_obj);
+                        V2 obstacle_col = Object_GetAvgCollisionPos(projected_obstacle);
+                        V2 obstacle_dir = V2_Sub(obj_col, obstacle_col);
+                        if (V2_Inner(normal, obstacle_dir) > 0)
                         {
                             continue;
                         }
@@ -135,14 +136,33 @@ static void Game_AdvanceSimulation(AppState *app)
                             goto skip_this_obstacle;
                         }
 
-                        // if closest walls are parallel we have to enter here twice to set the correct
-                        // direction in wich obj is pushed.
-                        if (d >= biggest_dist)
+                        if (d > biggest_dist)
                         {
                             biggest_dist = d;
-                            if (normal_obj == obstacle)
+                            if (normal_obj == obj)
+                            {
+                                wall_normal = V2_Reverse(normal);
+                            }
+                            else
                             {
                                 wall_normal = normal;
+                            }
+                        }
+                        else if (d == biggest_dist)
+                        {
+                            V2 obj_col = Object_GetAvgCollisionPos(normal_obj);
+                            V2 obstacle_col = Object_GetAvgCollisionPos(projected_obstacle);
+                            V2 obstacle_dir = V2_Sub(obstacle_col, obj_col);
+                            if (V2_Inner(normal, obstacle_dir) > V2_Inner(wall_normal, obstacle_dir))
+                            {
+                                if (normal_obj == obj)
+                                {
+                                    wall_normal = V2_Reverse(normal);
+                                }
+                                else
+                                {
+                                    wall_normal = normal;
+                                }
                             }
                         }
                     }
@@ -449,7 +469,8 @@ static void Game_Init(AppState *app)
         V2 collision_dim = {0};
         collision_dim.x = sprite_dude->tex->w * scale;
         collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
-        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        // player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
@@ -479,9 +500,9 @@ static void Game_Init(AppState *app)
         float length = 7.5f;
         float off = length*0.5f - thickness*0.5f;
         Object_Wall(app, (V2){off, 0}, (V2){thickness, length});
-        Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
-        Object_Wall(app, (V2){0, off}, (V2){length, thickness});
-        Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
+        // Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
+        // Object_Wall(app, (V2){0, off}, (V2){length, thickness});
+        // Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
 
         // {
         //     Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
