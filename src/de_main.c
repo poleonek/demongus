@@ -452,8 +452,7 @@ static void Game_Init(AppState *app)
         V2 collision_dim = {0};
         collision_dim.x = sprite_dude->tex->w * scale;
         collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
-        // player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x * 10, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
@@ -483,40 +482,40 @@ static void Game_Init(AppState *app)
         float length = 7.5f;
         float off = length*0.5f - thickness*0.5f;
         Object_Wall(app, (V2){off, 0}, (V2){thickness, length});
-        // Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
-        // Object_Wall(app, (V2){0, off}, (V2){length, thickness});
-        // Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
+        Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
+        Object_Wall(app, (V2){0, off}, (V2){length, thickness});
+        Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
 
-        // {
-        //     Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
-        //     rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
-        // }
-        // {
-        //     float px_x = sprite_ref->tex->w;
-        //     float px_y = sprite_ref->tex->h;
-        //     float scale = 0.035f;
-        //     Object *ref_wall = Object_Wall(app, (V2){0, off*0.5f}, (V2){px_x*scale, px_y*scale});
-        //     ref_wall->color = ColorF_RGBA(1,1,1,1);
-        //     ref_wall->collision_rotation = ref_wall->sprite_rotation = -0.125f;
-        //     ref_wall->sprite_id = Sprite_IdFromPointer(app, sprite_ref);
-        // }
-        // {
-        //     float px_x = sprite_crate->tex->w;
-        //     float px_y = sprite_crate->tex->h;
-        //     float scale = 0.015f;
-        //     Object *crate_wall = Object_Wall(app, (V2){0, -off*0.5f},
-        //                                      (V2){px_x*scale, px_y*scale});
+        {
+            Object *rot_wall = Object_Wall(app, (V2){-off,-off*2.f}, (V2){length*0.5f, thickness});
+            rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
+        }
+        {
+            float px_x = sprite_ref->tex->w;
+            float px_y = sprite_ref->tex->h;
+            float scale = 0.035f;
+            Object *ref_wall = Object_Wall(app, (V2){0, off*0.5f}, (V2){px_x*scale, px_y*scale});
+            ref_wall->color = ColorF_RGBA(1,1,1,1);
+            ref_wall->collision_rotation = ref_wall->sprite_rotation = -0.125f;
+            ref_wall->sprite_id = Sprite_IdFromPointer(app, sprite_ref);
+        }
+        {
+            float px_x = sprite_crate->tex->w;
+            float px_y = sprite_crate->tex->h;
+            float scale = 0.015f;
+            Object *crate_wall = Object_Wall(app, (V2){0, -off*0.5f},
+                                             (V2){px_x*scale, px_y*scale});
 
 
-        //     crate_wall->collision_rotation = 0.125f;
-        //     crate_wall->color = ColorF_RGBA(1,1,1,1);
-        //     crate_wall->sprite_id = Sprite_IdFromPointer(app, sprite_crate);
-        // }
-        // {
-        //     Object *rot_wall = Object_Wall(app, (V2){off,-off*2.f}, (V2){length*0.5f, thickness});
-        //     rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
-        //     app->special_wall = Object_IdFromPointer(app, rot_wall);
-        // }
+            crate_wall->collision_rotation = 0.125f;
+            crate_wall->color = ColorF_RGBA(1,1,1,1);
+            crate_wall->sprite_id = Sprite_IdFromPointer(app, sprite_crate);
+        }
+        {
+            Object *rot_wall = Object_Wall(app, (V2){off,-off*2.f}, (V2){length*0.5f, thickness});
+            rot_wall->collision_rotation = rot_wall->sprite_rotation = 0.125f;
+            app->special_wall = Object_IdFromPointer(app, rot_wall);
+        }
     }
 
     // initialize normals (for collision) and vertices (for collision & drawing)
