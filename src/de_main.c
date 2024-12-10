@@ -121,8 +121,8 @@ static void Game_AdvanceSimulation(AppState *app)
 
                         V2 obj_col = Object_GetAvgCollisionPos(normal_obj);
                         V2 obstacle_col = Object_GetAvgCollisionPos(projected_obstacle);
-                        V2 obstacle_dir = V2_Sub(obj_col, obstacle_col);
-                        if (V2_Inner(normal, obstacle_dir) > 0)
+                        V2 obstacle_dir = V2_Sub(obstacle_col, obj_col);
+                        if (V2_Inner(normal, obstacle_dir) < 0)
                         {
                             continue;
                         }
@@ -146,23 +146,6 @@ static void Game_AdvanceSimulation(AppState *app)
                             else
                             {
                                 wall_normal = normal;
-                            }
-                        }
-                        else if (d == biggest_dist)
-                        {
-                            V2 obj_col = Object_GetAvgCollisionPos(normal_obj);
-                            V2 obstacle_col = Object_GetAvgCollisionPos(projected_obstacle);
-                            V2 obstacle_dir = V2_Sub(obstacle_col, obj_col);
-                            if (V2_Inner(normal, obstacle_dir) > V2_Inner(wall_normal, obstacle_dir))
-                            {
-                                if (normal_obj == obj)
-                                {
-                                    wall_normal = V2_Reverse(normal);
-                                }
-                                else
-                                {
-                                    wall_normal = normal;
-                                }
                             }
                         }
                     }
@@ -470,7 +453,7 @@ static void Game_Init(AppState *app)
         collision_dim.x = sprite_dude->tex->w * scale;
         collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
         // player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x * 10, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
         player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
         player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};

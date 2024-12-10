@@ -57,7 +57,7 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
     obj->p = p;
 
     obj->collision_rotation = 0.125f;
-    obj->vertices_relative_to_p.arr[0] = (V2){obj->p.x - dim.x, obj->p.y - dim.y};
+    obj->vertices_relative_to_p.arr[0] = (V2){obj->p.x - dim.x * 100, obj->p.y - dim.y};
     // obj->vertices_relative_to_p.arr[0] = (V2){obj->p.x - dim.x / 2, obj->p.y - dim.y / 2};
     obj->vertices_relative_to_p.arr[1] = (V2){obj->p.x + dim.x / 2, obj->p.y - dim.y / 2};
     obj->vertices_relative_to_p.arr[2] = (V2){obj->p.x + dim.x / 2, obj->p.y + dim.y / 2};

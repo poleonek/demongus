@@ -30,6 +30,12 @@ typedef struct
 {
     V2 arr[4];
 } Vertices, Normals;
+typedef union
+{
+    V2 arr[2];
+    V2 A;
+    V2 B;
+} Line;
 
 typedef struct
 {
