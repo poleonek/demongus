@@ -56,10 +56,10 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
     Object *obj = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Collide);
     obj->p = p;
 
-    obj->vertices_relative_to_p.arr[0] = (V2){obj->p.x - dim.x / 2, obj->p.y - dim.y / 2};
-    obj->vertices_relative_to_p.arr[1] = (V2){obj->p.x + dim.x / 2, obj->p.y - dim.y / 2};
-    obj->vertices_relative_to_p.arr[2] = (V2){obj->p.x + dim.x / 2, obj->p.y + dim.y / 2};
-    obj->vertices_relative_to_p.arr[3] = (V2){obj->p.x - dim.x / 2, obj->p.y + dim.y / 2};
+    obj->vertices_relative_to_p.arr[0] = (V2){-dim.x / 2, -dim.y / 2};
+    obj->vertices_relative_to_p.arr[1] = (V2){ dim.x / 2, -dim.y / 2};
+    obj->vertices_relative_to_p.arr[2] = (V2){ dim.x / 2,  dim.y / 2};
+    obj->vertices_relative_to_p.arr[3] = (V2){-dim.x / 2,  dim.y / 2};
 
     static float r = 0.f;
     static float g = 0.5f;
