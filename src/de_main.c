@@ -3,7 +3,7 @@
 //           and it should be isolated from platform specific
 //           stuff when it's reasonable.
 //
-static void Game_AdvanceSimulation(AppState *app)
+static void Game_AdvanceSimulation(AppState *app, float time_step)
 {
     // update prev_p
     ForU32(obj_id, app->object_count)
@@ -15,7 +15,7 @@ static void Game_AdvanceSimulation(AppState *app)
     // animate special wall
     {
         Object *obj = Object_Get(app, app->special_wall);
-        obj->collision_rotation = WrapF(0.f, 1.f, obj->collision_rotation + app->dt);
+        obj->collision_rotation = WrapF(0.f, 1.f, obj->collision_rotation + time_step);
         obj->sprite_rotation = obj->collision_rotation;
         Object_UpdateCollisionVerticesAndNormals(app, obj);
     }
@@ -47,17 +47,17 @@ static void Game_AdvanceSimulation(AppState *app)
         if (ice_skating_dlc)
         {
             // @todo(mg): this is bad, we need a fixed timestep
-            float player_speed = 0.005f * app->dt;
+            float player_speed = 0.005f * time_step;
             V2 player_ddp = V2_Scale(dir, player_speed);
             player->dp = V2_Add(player->dp, player_ddp);
 
-            float drag = -0.999f * app->dt;
+            float drag = -0.999f * time_step;
             V2 player_drag = V2_Scale(player->dp, drag);
             player->dp = V2_Add(player->dp, player_drag);
         }
         else
         {
-            float player_speed = 5.f * app->dt;
+            float player_speed = 5.f * time_step;
             player->dp = V2_Scale(dir, player_speed);
         }
     }
@@ -203,8 +203,8 @@ static void Game_AdvanceSimulation(AppState *app)
         bool in_idle_frame = (0 == frame_index_map[obj->sprite_animation_index]);
 
         float distance = V2_Length(V2_Sub(obj->p, obj->prev_p));
-        float anim_speed = (16.f * app->dt);
-        anim_speed += (3200.f * distance * app->dt);
+        float anim_speed = (16.f * time_step);
+        anim_speed += (3200.f * distance * time_step);
 
         if (!distance && in_idle_frame)
         {
@@ -404,7 +404,7 @@ static void Game_Iterate(AppState *app)
         Uint64 new_frame_time = SDL_GetTicks();
         Uint64 delta_time = new_frame_time - app->frame_time;
         app->frame_time = new_frame_time;
-        app->dt = delta_time * (0.001f);
+        app->dt += delta_time * (0.001f);
         app->dt = Min(app->dt, 1.f); // clamp dt to 1s
 
         if (app->debug.fixed_dt)
@@ -416,7 +416,12 @@ static void Game_Iterate(AppState *app)
     bool run_simulation = (!app->debug.pause_on_every_frame || !app->debug.paused_frame);
     if (run_simulation)
     {
-        Game_AdvanceSimulation(app);
+        float time_step = 0.25;
+        while (app->dt > 0)
+        {
+            app->dt -= time_step;
+            Game_AdvanceSimulation(app, time_step);
+        }
     }
     Game_IssueDrawCommands(app);
 }
