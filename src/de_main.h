@@ -28,19 +28,28 @@ typedef enum {
 
 typedef struct
 {
+    V2 arr[4];
+} Vertices, Normals;
+typedef union
+{
+    V2 arr[2];
+    V2 A;
+    V2 B;
+} Line;
+
+typedef struct
+{
     Uint32 flags;
     V2 p; // position of center
     V2 dp; // change of p
     V2 prev_p; // position from the last frame
 
-    // collision
-    V2 collision_offset;
-    V2 collision_dim;
-    float collision_rotation; // in turns; 1.0 == 360 degrees
-
+    float collision_rotation;
     // calculated after applying rotation
-    V2 collision_normals[4]; // right, top, left, bottom
-    V2 collision_vertices[4]; // bottom-left, bottom-right, top-left, top-right
+    Uint8 num_vertices; // @todo(poleonek) allow other numbers than 4
+    Vertices vertices_relative_to_p; // constant after init
+    Normals collision_normals; // right, top, left, bottom
+    Vertices collision_vertices; // bottom-left, bottom-right, top-left, top-right
 
     // visuals
     ColorF color;
@@ -48,7 +57,7 @@ typedef struct
     float sprite_rotation;
     float sprite_scale;
     bool dirty_sprite_vertices;
-    V2 sprite_vertices[4];
+    Vertices sprite_vertices;
 
     float sprite_animation_t;
     Uint32 sprite_animation_index;

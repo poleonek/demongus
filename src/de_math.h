@@ -84,6 +84,10 @@ static V2 V2_Mul(V2 a, V2 b)
 {
     return (V2){a.x * b.x, a.y * b.y};
 }
+static V2 V2_Reverse(V2 a)
+{
+    return (V2){-a.x, -a.y};
+}
 static float V2_Inner(V2 a, V2 b)
 {
     return a.x*b.x + a.y*b.y;
@@ -105,6 +109,44 @@ static V2 V2_Normalize(V2 a)
     }
     return a;
 }
+// returns operand rotated 90 degrees clockwise
+static V2 V2_Rotate90(V2 a)
+{
+    // rotation matrix
+    // [ cos(-0.5pi) -sin(-0.5pi) ] [ x ]
+    // [ sin(-0.5pi)  cos(-0.5pi) ] [ y ]
+    float cos = 0;  // cos(-0.5pi)
+    float sin = -1; // sin(-0.5pi)
+
+    float x_prim = V2_Inner((V2){cos, -sin}, a);
+    float y_prim = V2_Inner((V2){sin,  cos}, a);
+
+    return (V2){x_prim, y_prim};
+}
+static V2 V2_Rotate(V2 a, float rot)
+{
+    // Ideally we would have custom made sin/cos that work with turns
+    // turns -> * pi -> radians
+    float sin = SinF(rot * 2.f*SDL_PI_F);
+    float cos = CosF(rot * 2.f*SDL_PI_F);
+
+    // rotation matrix
+    // [ cos(rot2pi) -sin(rot2pi) ] [ x ]
+    // [ sin(rot2pi)  cos(rot2pi) ] [ y ]
+    float x_prim = V2_Inner((V2){cos, -sin}, a);
+    float y_prim = V2_Inner((V2){sin,  cos}, a);
+
+    return (V2){x_prim, y_prim};
+}
+static V2 V2_CalculateNormal(V2 a, V2 b)
+{
+    // Place vertex a at (0, 0) (turns line a--b into a vector).
+    V2 vec = V2_Sub(b, a);
+    // Make a direction vector out of it.
+    V2 dir = V2_Normalize(vec);
+
+    return V2_Rotate90(dir);
+}
 
 // ---
 // Range
@@ -119,6 +161,13 @@ static float RngF_MaxDistance(RngF a, RngF b)
     float d0 = b.min - a.max;
     float d1 = a.min - b.max;
     return Max(d0, d1);
+}
+
+static float signum(float a)
+{
+    if (a < 0)
+        return -1;
+    return 1;
 }
 
 // ---
