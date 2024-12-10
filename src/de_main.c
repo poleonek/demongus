@@ -461,20 +461,20 @@ static void Game_Init(AppState *app)
         player->sprite_id = Sprite_IdFromPointer(app, sprite_dude);
         app->player_ids[0] = Object_IdFromPointer(app, player);
     }
-    // // add player2
-    // {
-    //     Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
-    //     player->p.x = 3.f;
-    //     V2 collision_dim = {0};
-    //     collision_dim.x = 0.3f;
-    //     collision_dim.y = 0.9f;
-    //     player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-    //     player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-    //     player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
-    //     player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
-    //     player->color = ColorF_RGB(0.4f, .4f, .94f);
-    //     app->player_ids[1] = Object_IdFromPointer(app, player);
-    // }
+    // add player2
+    {
+        Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
+        player->p.x = 3.f;
+        V2 collision_dim = {0};
+        collision_dim.x = 0.3f;
+        collision_dim.y = 0.9f;
+        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
+        player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
+        player->color = ColorF_RGB(0.4f, .4f, .94f);
+        app->player_ids[1] = Object_IdFromPointer(app, player);
+    }
 
     // add walls
     {
