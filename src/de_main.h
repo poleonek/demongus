@@ -2,6 +2,7 @@
 // Constants
 // ---
 #define ScaleMetersPerPixel 0.025f
+#define TIME_STEP 1.f / 240.f
 
 typedef enum {
     Axis2_X,
@@ -82,6 +83,7 @@ typedef struct
     // time
     Uint64 frame_time;
     float dt;
+    float physics_time_accumulator;
 
     // objects
     Object object_pool[4096];
