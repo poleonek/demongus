@@ -124,7 +124,8 @@ typedef struct
         } server;
         struct
         {
-            SDLNet_Address *address;
+            SDLNet_Address *server_address;
+            Uint16 server_port;
         } client;
     } net;
 

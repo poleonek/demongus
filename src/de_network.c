@@ -1,3 +1,8 @@
+static const char *Net_Label(AppState *app)
+{
+    return app->net.is_server ? "SERVER" : "CLIENT";
+}
+
 static NetUser *Net_FindUser(AppState *app, SDLNet_Address *address)
 {
     ForU32(i, app->net.server.user_count)
@@ -33,23 +38,38 @@ static void Net_Iterate(AppState *app)
         if (!dgram) break;
 
         SDL_Log("%s: got %d-byte datagram from %s:%d",
-                app->net.is_server ? "SERVER" : "CLIENT",
+                Net_Label(app),
                 (int)dgram->buflen,
                 SDLNet_GetAddressString(dgram->addr),
                 (int)dgram->port);
 
-        SDL_Log("MESSAGE: %.*s", (int)dgram->buflen, (char *)dgram->buf);
+        if (!app->net.is_server)
+        {
+            if ((dgram->port != app->net.client.server_port) ||
+                (SDLNet_CompareAddresses(dgram->addr, app->net.client.server_address) != 0))
+            {
+                SDL_Log("%s: Ignoring message from non-server address %s:%d",
+                        Net_Label(app),
+                        SDLNet_GetAddressString(dgram->addr), (int)dgram->port);
+                goto datagram_cleanup;
+            }
+        }
+
+        SDL_Log("%s MSG: %.*s",
+                Net_Label(app),
+                (int)dgram->buflen, (char *)dgram->buf);
 
         if (app->net.is_server)
         {
             if (!Net_FindUser(app, dgram->addr))
             {
-                SDL_Log("SERVER: saving user with port: %d", (int)dgram->port);
+                SDL_Log("%s: saving user with port: %d",
+                        Net_Label(app), (int)dgram->port);
                 Net_AddUser(app, dgram->addr, dgram->port);
             }
         }
 
-        // cleanup
+        datagram_cleanup:
         SDLNet_DestroyDatagram(dgram);
     }
 
@@ -57,10 +77,11 @@ static void Net_Iterate(AppState *app)
     {
         char send_buf[] = "I'm a client and I like sending messages.";
         bool send_res = SDLNet_SendDatagram(app->net.socket,
-                                            app->net.client.address,
-                                            NET_DEFAULT_SEVER_PORT,
+                                            app->net.client.server_address,
+                                            app->net.client.server_port,
                                             send_buf, sizeof(send_buf));
-        SDL_Log("CLIENT SendDatagram result: %s", send_res ? "success" : "fail");
+        SDL_Log("%s: SendDatagram result: %s",
+                Net_Label(app), send_res ? "success" : "fail");
     }
 
     if (app->net.is_server && ((app->frame_id % 14000) == 123))
@@ -74,7 +95,8 @@ static void Net_Iterate(AppState *app)
                                                 user->address,
                                                 user->port,
                                                 send_buf, sizeof(send_buf));
-            SDL_Log("SERVER SendDatagram result: %s", send_res ? "success" : "fail");
+            SDL_Log("%s: SendDatagram result: %s",
+                    Net_Label(app), send_res ? "success" : "fail");
         }
     }
 }
@@ -86,21 +108,24 @@ static void Net_Init(AppState *app)
     if (!app->net.is_server)
     {
         const char *hostname = "localhost";
-        SDL_Log("CLIENT: Resolving server hostname '%s' ...", hostname);
-        app->net.client.address = SDLNet_ResolveHostname(hostname);
-        if (app->net.client.address)
+        SDL_Log("%s: Resolving server hostname '%s' ...",
+                Net_Label(app), hostname);
+        app->net.client.server_address = SDLNet_ResolveHostname(hostname);
+        app->net.client.server_port = NET_DEFAULT_SEVER_PORT;
+        if (app->net.client.server_address)
         {
-            if (SDLNet_WaitUntilResolved(app->net.client.address, -1) < 0)
+            if (SDLNet_WaitUntilResolved(app->net.client.server_address, -1) < 0)
             {
-                SDLNet_UnrefAddress(app->net.client.address);
-                app->net.client.address = 0;
+                SDLNet_UnrefAddress(app->net.client.server_address);
+                app->net.client.server_address = 0;
             }
         }
 
-        if (!app->net.client.address)
+        if (!app->net.client.server_address)
         {
             app->net.err = true;
-            SDL_Log("CLIENT: Failed to resolve server hostname '%s'", hostname);
+            SDL_Log("%s: Failed to resolve server hostname '%s'",
+                    Net_Label(app), hostname);
         }
     }
 
@@ -109,7 +134,8 @@ static void Net_Init(AppState *app)
     if (!app->net.socket)
     {
         app->net.err = true;
-        SDL_Log("NETWORK: Failed to create socket");
+        SDL_Log("%s: Failed to create socket",
+                Net_Label(app));
     }
 }
 
