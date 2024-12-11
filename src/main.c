@@ -10,14 +10,15 @@
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_net/SDL_net.h>
 
-#define WINDOW_HEIGHT 900
-#define WINDOW_WIDTH 1600
+#define WINDOW_HEIGHT 640
+#define WINDOW_WIDTH 854
 
 #include "de_base.h"
 #include "de_math.h"
 #include "de_main.h"
 #include "de_sprite.c"
 #include "de_object.c"
+#include "de_network.c"
 #include "de_main.c"
 
 SDL_AppResult SDL_AppIterate(void* appstate)
@@ -89,8 +90,19 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 {
-    (void)argc;
-    (void)argv;
+    bool is_server = false;
+    for (int arg_index = 1; arg_index < argc; arg_index += 1)
+    {
+        const char *arg = argv[arg_index];
+        if (0 == strcmp(arg, "-server"))
+        {
+            is_server = true;
+        }
+        else
+        {
+            SDL_Log("Unhandled argument: %s", arg);
+        }
+    }
 
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
@@ -104,29 +116,25 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     }
 
     *appstate = SDL_calloc(1, sizeof(AppState));
-    AppState* state = (AppState*)*appstate;
-    if (!state)
+    AppState* app = (AppState*)*appstate;
+    if (!app)
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to allocate appstate", SDL_GetError(), NULL);
         return SDL_APP_FAILURE;
     }
-    state->width = WINDOW_WIDTH;
-    state->height = WINDOW_HEIGHT;
+    app->width = WINDOW_WIDTH;
+    app->height = WINDOW_HEIGHT;
 
-    if (!SDL_CreateWindowAndRenderer("demongus", state->width, state->height,
-                                     SDL_WINDOW_RESIZABLE, &state->window, &state->renderer))
+    if (!SDL_CreateWindowAndRenderer("demongus", app->width, app->height,
+                                     SDL_WINDOW_RESIZABLE, &app->window, &app->renderer))
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to create window/renderer", SDL_GetError(), NULL);
         return SDL_APP_FAILURE;
     }
 
-    SDL_SetRenderDrawBlendMode(state->renderer, SDL_BLENDMODE_BLEND);
-
-    Game_Init(state);
-
-    // SDL NET TEST
-    SDLNet_DatagramSocket *socket_test = SDLNet_CreateDatagramSocket(0, 21037); // testing if library is compiled
-    (void)socket_test;
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+    app->net.is_server = is_server;
+    Game_Init(app);
 
     return SDL_APP_CONTINUE;
 }

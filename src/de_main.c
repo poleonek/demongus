@@ -379,6 +379,19 @@ static void Game_IssueDrawCommands(AppState *app)
         }
     }
 
+    // draw debug networking stuff
+    {
+        ColorF green = ColorF_RGB(0, 1, 0);
+        ColorF red = ColorF_RGB(1, 0, 0);
+
+        SDL_FRect rect = { 0, 0, 30, 30 };
+        if (!app->net.is_server) rect.x = 40;
+
+        ColorF color = app->net.err ? red : green;
+        SDL_SetRenderDrawColorFloat(app->renderer, color.r, color.g, color.b, color.a);
+        SDL_RenderFillRect(app->renderer, &rect);
+    }
+
     // draw mouse
     {
         static float r = 0;
@@ -399,6 +412,8 @@ static void Game_IssueDrawCommands(AppState *app)
 static void Game_Iterate(AppState *app)
 {
     {
+        app->frame_id += 1;
+
         Uint64 new_frame_time = SDL_GetTicks();
         Uint64 delta_time = new_frame_time - app->frame_time;
         app->frame_time = new_frame_time;
@@ -410,6 +425,8 @@ static void Game_Iterate(AppState *app)
             app->dt = app->debug.fixed_dt;
         }
     }
+
+    Net_Iterate(app);
 
     bool run_simulation = (!app->debug.pause_on_every_frame || !app->debug.paused_frame);
     if (run_simulation)
@@ -431,6 +448,8 @@ static void Game_Init(AppState *app)
         //app->debug.pause_on_every_frame = true;
         app->debug.draw_collision_box = true;
     }
+
+    Net_Init(app);
 
     app->frame_time = SDL_GetTicks();
     app->object_count += 1; // reserve object under index 0 as special 'nil' value
