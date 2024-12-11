@@ -2,7 +2,7 @@
 // Constants
 // ---
 #define ScaleMetersPerPixel 0.025f
-#define TIME_STEP 1.f / 240.f
+#define TIME_STEP 1.f / 128.f
 
 typedef enum {
     Axis2_X,

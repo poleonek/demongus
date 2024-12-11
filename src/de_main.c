@@ -416,7 +416,7 @@ static void Game_Iterate(AppState *app)
     bool run_simulation = (!app->debug.pause_on_every_frame || !app->debug.paused_frame);
     if (run_simulation)
     {
-        while (app->physics_time_accumulator > 0)
+        while (app->physics_time_accumulator > TIME_STEP)
         {
             app->physics_time_accumulator -= TIME_STEP;
             Game_AdvanceSimulation(app);
