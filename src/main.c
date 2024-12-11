@@ -8,6 +8,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
+#include <SDL3_net/SDL_net.h>
 
 #define WINDOW_HEIGHT 900
 #define WINDOW_WIDTH 1600
@@ -97,6 +98,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
         return SDL_APP_FAILURE;
     }
 
+    if (!SDLNet_Init()) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to initialize SDL3 Net.", SDL_GetError(), NULL);
+        return SDL_APP_FAILURE;
+    }
+
     *appstate = SDL_calloc(1, sizeof(AppState));
     AppState* state = (AppState*)*appstate;
     if (!state)
@@ -117,6 +123,10 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
     SDL_SetRenderDrawBlendMode(state->renderer, SDL_BLENDMODE_BLEND);
 
     Game_Init(state);
+
+    // SDL NET TEST
+    SDLNet_DatagramSocket *socket_test = SDLNet_CreateDatagramSocket(0, 21037); // testing if library is compiled
+    (void)socket_test;
 
     return SDL_APP_CONTINUE;
 }
