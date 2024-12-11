@@ -71,6 +71,12 @@ typedef struct
 
 typedef struct
 {
+    SDLNet_Address *address;
+    Uint16 port;
+} NetUser;
+
+typedef struct
+{
     // SDL, window stuff
     SDL_Window* window;
     SDL_Renderer* renderer;
@@ -113,7 +119,8 @@ typedef struct
         SDLNet_DatagramSocket *socket;
         struct
         {
-            int server_specific_things_todo;
+            NetUser users[16];
+            Uint32 user_count;
         } server;
         struct
         {
@@ -122,7 +129,8 @@ typedef struct
     } net;
 
     // debug
-    struct {
+    struct
+    {
         float fixed_dt;
         bool pause_on_every_frame;
         bool paused_frame;
