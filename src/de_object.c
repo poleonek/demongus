@@ -126,7 +126,7 @@ static V2 Object_GetDrawDim(AppState *app, Object *obj)
     }
 }
 
-static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool update_sprite)
+static void Object_CalculateVerticesAndNormals(Object *obj, bool update_sprite)
 {
     float rotation = (update_sprite ? obj->sprite_rotation : obj->collision_rotation);
 
@@ -147,7 +147,7 @@ static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool 
 
     if (!update_sprite)
     {
-        Uint8 vert_count = ArrayCount(obj->collision_vertices.arr);
+        Uint32 vert_count = ArrayCount(obj->collision_vertices.arr);
         V2* verts = obj->collision_vertices.arr;
 
         // calculate last normal
@@ -159,11 +159,11 @@ static void Object_CalculateVerticesAndNormals(AppState *app, Object *obj, bool 
     }
 }
 
-static void Object_UpdateCollisionVerticesAndNormals(AppState *app, Object *obj)
+static void Object_UpdateCollisionVerticesAndNormals(Object *obj)
 {
     // @todo This function should be called automatically?
     //       We should add some asserts and checks to make sure
     //       that we aren't using stale vertices & normals
     obj->dirty_sprite_vertices = true;
-    Object_CalculateVerticesAndNormals(app, obj, false);
+    Object_CalculateVerticesAndNormals(obj, false);
 }

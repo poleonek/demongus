@@ -17,7 +17,7 @@ static void Game_AdvanceSimulation(AppState *app)
         Object *obj = Object_Get(app, app->special_wall);
         obj->collision_rotation = WrapF(0.f, 1.f, obj->collision_rotation + TIME_STEP);
         obj->sprite_rotation = obj->collision_rotation;
-        Object_UpdateCollisionVerticesAndNormals(app, obj);
+        Object_UpdateCollisionVerticesAndNormals(obj);
     }
 
     // player input
@@ -74,11 +74,10 @@ static void Game_AdvanceSimulation(AppState *app)
         if (!(obj->flags & ObjectFlag_Move)) continue;
 
         obj->p = V2_Add(obj->p, obj->dp);
-        Object_UpdateCollisionVerticesAndNormals(app, obj);
+        Object_UpdateCollisionVerticesAndNormals(obj);
 
         ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
-            Uint32 closest_obstacle_id = 0;
             float closest_obstacle_separation_dist = FLT_MAX;
             V2 closest_obstacle_wall_normal = {0};
 
@@ -155,7 +154,6 @@ static void Game_AdvanceSimulation(AppState *app)
                 {
                     closest_obstacle_separation_dist = biggest_dist;
                     closest_obstacle_wall_normal = wall_normal;
-                    closest_obstacle_id = obstacle_id;
                 }
 
                 obj->has_collision |= (biggest_dist < 0.f);
@@ -177,7 +175,7 @@ static void Game_AdvanceSimulation(AppState *app)
                 if (move_out.x) obj->dp.x = 0;
                 if (move_out.y) obj->dp.y = 0;
 
-                Object_UpdateCollisionVerticesAndNormals(app, obj);
+                Object_UpdateCollisionVerticesAndNormals(obj);
             }
             else
             {
@@ -284,7 +282,7 @@ static void Game_IssueDrawCommands(AppState *app)
 
             if (obj->dirty_sprite_vertices)
             {
-                Object_CalculateVerticesAndNormals(app, obj, true);
+                Object_CalculateVerticesAndNormals(obj, true);
             }
 
             V2 verts[4];
@@ -526,6 +524,6 @@ static void Game_Init(AppState *app)
     ForU32(obj_id, app->object_count)
     {
         Object *obj = app->object_pool + obj_id;
-        Object_UpdateCollisionVerticesAndNormals(app, obj);
+        Object_UpdateCollisionVerticesAndNormals(obj);
     }
 }
