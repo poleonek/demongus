@@ -204,7 +204,7 @@ static void Game_AdvanceSimulation(AppState *app)
 
         float distance = V2_Length(V2_Sub(obj->p, obj->prev_p));
         float anim_speed = (16.f * TIME_STEP);
-        anim_speed += (3200.f * distance * TIME_STEP);
+        anim_speed += (400.f * distance * TIME_STEP);
 
         if (!distance && in_idle_frame)
         {
