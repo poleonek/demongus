@@ -2,7 +2,8 @@
 // Constants
 // ---
 #define ScaleMetersPerPixel 0.025f
-#define TIME_STEP 1.f / 128.f
+#define TIME_STEP (1.f / 128.f)
+#define NET_DEFAULT_SEVER_PORT 21037
 
 typedef enum {
     Axis2_X,
@@ -81,6 +82,7 @@ typedef struct
     bool keyboard[SDL_SCANCODE_COUNT]; // true == key is down
 
     // time
+    Uint64 frame_id;
     Uint64 frame_time;
     float dt;
     float physics_time_accumulator;
@@ -102,6 +104,22 @@ typedef struct
     // how much of the world is visible in the camera
     // float camera_scale = Max(width, height) / camera_range
     float camera_range;
+
+    // networking
+    struct
+    {
+        bool err; // tracks if network is in error state
+        bool is_server;
+        SDLNet_DatagramSocket *socket;
+        struct
+        {
+            int server_specific_things_todo;
+        } server;
+        struct
+        {
+            SDLNet_Address *address;
+        } client;
+    } net;
 
     // debug
     struct {
