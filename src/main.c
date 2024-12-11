@@ -110,7 +110,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
         return SDL_APP_FAILURE;
     }
 
-    if (!SDLNet_Init()) {
+    if (!SDLNet_Init())
+    {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to initialize SDL3 Net.", SDL_GetError(), NULL);
         return SDL_APP_FAILURE;
     }
