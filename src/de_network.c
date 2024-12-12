@@ -1,9 +1,41 @@
+typedef struct
+{
+    Uint64 magic_value;
+    Uint64 hash; // of all values post first 16 bytes
+} Net_BufHeader;
+
+static Uint8 *Net_BufAlloc(AppState *app, Uint32 size)
+{
+    Uint8 *result = app->net.buf + app->net.buf_used;
+    {
+        // return ptr to start of the buffer
+        // on overflow
+        Uint8 *end = (app->net.buf + sizeof(app->net.buf));
+        if (end < (result + size))
+        {
+            Assert(false);
+            result = app->net.buf;
+            app->net.buf_err = true;
+        }
+    }
+    app->net.buf_used += size;
+    return result;
+}
+
+static Uint8 *Net_BufMemcpy(AppState *app, void *data, Uint32 size)
+{
+    Uint8 *result = Net_BufAlloc(app, size);
+    memcpy(result, data, size);
+    return result;
+}
+
+
 static const char *Net_Label(AppState *app)
 {
     return app->net.is_server ? "SERVER" : "CLIENT";
 }
 
-static NetUser *Net_FindUser(AppState *app, SDLNet_Address *address)
+static Net_User *Net_FindUser(AppState *app, SDLNet_Address *address)
 {
     ForU32(i, app->net.server.user_count)
     {
@@ -13,11 +45,11 @@ static NetUser *Net_FindUser(AppState *app, SDLNet_Address *address)
     return 0;
 }
 
-static NetUser *Net_AddUser(AppState *app, SDLNet_Address *address, Uint16 port)
+static Net_User *Net_AddUser(AppState *app, SDLNet_Address *address, Uint16 port)
 {
     if (app->net.server.user_count < ArrayCount(app->net.server.users))
     {
-        NetUser *user = app->net.server.users + app->net.server.user_count;
+        Net_User *user = app->net.server.users + app->net.server.user_count;
         app->net.server.user_count += 1;
         user->address = SDLNet_RefAddress(address);
         user->port = port;
@@ -26,10 +58,8 @@ static NetUser *Net_AddUser(AppState *app, SDLNet_Address *address, Uint16 port)
     return 0;
 }
 
-static void Net_Iterate(AppState *app)
+static void Net_ReceiveData(AppState *app)
 {
-    if (app->net.err) return;
-
     for (;;)
     {
         SDLNet_Datagram *dgram = 0;
@@ -72,8 +102,27 @@ static void Net_Iterate(AppState *app)
         datagram_cleanup:
         SDLNet_DestroyDatagram(dgram);
     }
+}
 
-    if (!app->net.is_server && ((app->frame_id % 6400) == 0))
+static void Net_SendData(AppState *app)
+{
+    bool is_server = app->net.is_server;
+    bool is_client = !app->net.is_server;
+
+    if (is_client)
+    {
+        Net_BufHeader header = {};
+        header.magic_value = NET_MAGIC_VALUE;
+
+        Uint8 *buf_header = Net_BufAlloc(app, sizeof(Net_BufHeader));
+        (void)buf_header;
+
+
+
+    }
+
+
+    if (is_client && ((app->tick_id % 640) == 0))
     {
         char send_buf[] = "I'm a client and I like sending messages.";
         bool send_res = SDLNet_SendDatagram(app->net.socket,
@@ -84,12 +133,12 @@ static void Net_Iterate(AppState *app)
                 Net_Label(app), send_res ? "success" : "fail");
     }
 
-    if (app->net.is_server && ((app->frame_id % 14000) == 123))
+    if (is_server && ((app->tick_id % 1400) == 123))
     {
         char send_buf[] = "Hello, I'm a server.";
         ForU32(i, app->net.server.user_count)
         {
-            NetUser *user = app->net.server.users + i;
+            Net_User *user = app->net.server.users + i;
 
             bool send_res = SDLNet_SendDatagram(app->net.socket,
                                                 user->address,
@@ -99,6 +148,13 @@ static void Net_Iterate(AppState *app)
                     Net_Label(app), send_res ? "success" : "fail");
         }
     }
+}
+
+static void Net_Iterate(AppState *app)
+{
+    if (app->net.err) return;
+    Net_ReceiveData(app);
+    Net_SendData(app);
 }
 
 static void Net_Init(AppState *app)

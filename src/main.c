@@ -19,6 +19,7 @@
 #include "de_sprite.c"
 #include "de_object.c"
 #include "de_network.c"
+#include "de_tick.c"
 #include "de_main.c"
 
 SDL_AppResult SDL_AppIterate(void* appstate)
@@ -113,7 +114,9 @@ static void Game_ParseCmd(AppState *app, int argc, char** argv)
             bool found_number = false;
             if (i + 1 < argc)
             {
-                const char *next_arg = argv[i + 1];
+                i += 1;
+                const char *next_arg = argv[i];
+
                 int number = SDL_strtoul(next_arg, 0, 0);
                 if (number > 0)
                 {

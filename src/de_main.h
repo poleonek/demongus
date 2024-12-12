@@ -3,7 +3,10 @@
 // ---
 #define ScaleMetersPerPixel 0.025f
 #define TIME_STEP (1.f / 128.f)
+
 #define NET_DEFAULT_SEVER_PORT 21037
+#define NET_MAGIC_VALUE 0xfda0'dead'beef'1234llu
+#define NET_MAX_TICK_HISTORY 4096
 
 typedef enum {
     Axis2_X,
@@ -73,7 +76,13 @@ typedef struct
 {
     SDLNet_Address *address;
     Uint16 port;
-} NetUser;
+} Net_User;
+
+typedef struct
+{
+    V2 move_dir;
+    // action buttons etc will be added here
+} TickInput;
 
 typedef struct
 {
@@ -90,11 +99,17 @@ typedef struct
     SDL_MouseButtonFlags mouse_keys;
     bool keyboard[SDL_SCANCODE_COUNT]; // true == key is down
 
+    // circular buffer with tick inputs
+    TickInput tick_input_buf[NET_MAX_TICK_HISTORY];
+    Uint64 tick_input_min;
+    Uint64 tick_input_max; // one past last
+
     // time
     Uint64 frame_id;
     Uint64 frame_time;
     float dt;
-    float physics_time_accumulator;
+    Uint64 tick_id;
+    float tick_dt_accumulator;
 
     // objects
     Object object_pool[4096];
@@ -120,9 +135,14 @@ typedef struct
         bool err; // tracks if network is in error state
         bool is_server;
         SDLNet_DatagramSocket *socket;
+
+        Uint8 buf[1024 * 1024 * 1]; // 1 MB scratch buffer for network payload construction
+        Uint32 buf_used;
+        bool buf_err; // true on overflows
+
         struct
         {
-            NetUser users[16];
+            Net_User users[16];
             Uint32 user_count;
         } server;
         struct
