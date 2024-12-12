@@ -17,7 +17,7 @@ static void Game_AdvanceSimulation(AppState *app)
         Object *obj = Object_Get(app, app->special_wall);
         obj->collision_rotation = WrapF(0.f, 1.f, obj->collision_rotation + TIME_STEP);
         obj->sprite_rotation = obj->collision_rotation;
-        Object_UpdateCollisionVerticesAndNormals(app, obj);
+        Object_UpdateCollisionVerticesAndNormals(obj);
     }
 
     // player input
@@ -74,11 +74,10 @@ static void Game_AdvanceSimulation(AppState *app)
         if (!(obj->flags & ObjectFlag_Move)) continue;
 
         obj->p = V2_Add(obj->p, obj->dp);
-        Object_UpdateCollisionVerticesAndNormals(app, obj);
+        Object_UpdateCollisionVerticesAndNormals(obj);
 
         ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
-            Uint32 closest_obstacle_id = 0;
             float closest_obstacle_separation_dist = FLT_MAX;
             V2 closest_obstacle_wall_normal = {0};
 
@@ -155,7 +154,6 @@ static void Game_AdvanceSimulation(AppState *app)
                 {
                     closest_obstacle_separation_dist = biggest_dist;
                     closest_obstacle_wall_normal = wall_normal;
-                    closest_obstacle_id = obstacle_id;
                 }
 
                 obj->has_collision |= (biggest_dist < 0.f);
@@ -177,7 +175,7 @@ static void Game_AdvanceSimulation(AppState *app)
                 if (move_out.x) obj->dp.x = 0;
                 if (move_out.y) obj->dp.y = 0;
 
-                Object_UpdateCollisionVerticesAndNormals(app, obj);
+                Object_UpdateCollisionVerticesAndNormals(obj);
             }
             else
             {
@@ -245,7 +243,7 @@ static void Game_VerticesCameraTransform(AppState *app, V2 verts[4], float camer
         verts[i].y += window_transform.y;
 
         // fix y axis direction to +Y up (SDL uses +Y down, -Y up)
-        verts[i].y = app->height - verts[i].y;
+        verts[i].y = app->window_height - verts[i].y;
     }
 }
 
@@ -273,10 +271,10 @@ static void Game_IssueDrawCommands(AppState *app)
     {
         float camera_scale = 1.f;
         {
-            float wh = Max(app->width, app->height); // pick bigger window dimension
+            float wh = Max(app->window_width, app->window_height); // pick bigger window dimension
             camera_scale = wh / app->camera_range;
         }
-        V2 window_transform = (V2){app->width*0.5f, app->height*0.5f};
+        V2 window_transform = (V2){app->window_width*0.5f, app->window_height*0.5f};
 
         ForU32(object_index, app->object_count)
         {
@@ -284,7 +282,7 @@ static void Game_IssueDrawCommands(AppState *app)
 
             if (obj->dirty_sprite_vertices)
             {
-                Object_CalculateVerticesAndNormals(app, obj, true);
+                Object_CalculateVerticesAndNormals(obj, true);
             }
 
             V2 verts[4];
@@ -381,6 +379,19 @@ static void Game_IssueDrawCommands(AppState *app)
         }
     }
 
+    // draw debug networking stuff
+    {
+        ColorF green = ColorF_RGB(0, 1, 0);
+        ColorF red = ColorF_RGB(1, 0, 0);
+
+        SDL_FRect rect = { 0, 0, 30, 30 };
+        if (!app->net.is_server) rect.x = 40;
+
+        ColorF color = app->net.err ? red : green;
+        SDL_SetRenderDrawColorFloat(app->renderer, color.r, color.g, color.b, color.a);
+        SDL_RenderFillRect(app->renderer, &rect);
+    }
+
     // draw mouse
     {
         static float r = 0;
@@ -401,6 +412,8 @@ static void Game_IssueDrawCommands(AppState *app)
 static void Game_Iterate(AppState *app)
 {
     {
+        app->frame_id += 1;
+
         Uint64 new_frame_time = SDL_GetTicks();
         Uint64 delta_time = new_frame_time - app->frame_time;
         app->frame_time = new_frame_time;
@@ -412,6 +425,8 @@ static void Game_Iterate(AppState *app)
             app->dt = app->debug.fixed_dt;
         }
     }
+
+    Net_Iterate(app);
 
     bool run_simulation = (!app->debug.pause_on_every_frame || !app->debug.paused_frame);
     if (run_simulation)
@@ -433,6 +448,8 @@ static void Game_Init(AppState *app)
         //app->debug.pause_on_every_frame = true;
         app->debug.draw_collision_box = true;
     }
+
+    Net_Init(app);
 
     app->frame_time = SDL_GetTicks();
     app->object_count += 1; // reserve object under index 0 as special 'nil' value
@@ -526,6 +543,6 @@ static void Game_Init(AppState *app)
     ForU32(obj_id, app->object_count)
     {
         Object *obj = app->object_pool + obj_id;
-        Object_UpdateCollisionVerticesAndNormals(app, obj);
+        Object_UpdateCollisionVerticesAndNormals(obj);
     }
 }

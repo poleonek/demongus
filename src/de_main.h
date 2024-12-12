@@ -2,7 +2,8 @@
 // Constants
 // ---
 #define ScaleMetersPerPixel 0.025f
-#define TIME_STEP 1.f / 128.f
+#define TIME_STEP (1.f / 128.f)
+#define NET_DEFAULT_SEVER_PORT 21037
 
 typedef enum {
     Axis2_X,
@@ -70,10 +71,19 @@ typedef struct
 
 typedef struct
 {
+    SDLNet_Address *address;
+    Uint16 port;
+} NetUser;
+
+typedef struct
+{
     // SDL, window stuff
     SDL_Window* window;
     SDL_Renderer* renderer;
-    int width, height;
+    int window_width, window_height;
+    int window_px, window_py; // initial window px, py specified by cmd options, 0 if wasn't set
+    bool window_on_top;
+    bool window_borderless;
 
     // user input
     V2 mouse;
@@ -81,6 +91,7 @@ typedef struct
     bool keyboard[SDL_SCANCODE_COUNT]; // true == key is down
 
     // time
+    Uint64 frame_id;
     Uint64 frame_time;
     float dt;
     float physics_time_accumulator;
@@ -103,8 +114,27 @@ typedef struct
     // float camera_scale = Max(width, height) / camera_range
     float camera_range;
 
+    // networking
+    struct
+    {
+        bool err; // tracks if network is in error state
+        bool is_server;
+        SDLNet_DatagramSocket *socket;
+        struct
+        {
+            NetUser users[16];
+            Uint32 user_count;
+        } server;
+        struct
+        {
+            SDLNet_Address *server_address;
+            Uint16 server_port;
+        } client;
+    } net;
+
     // debug
-    struct {
+    struct
+    {
         float fixed_dt;
         bool pause_on_every_frame;
         bool paused_frame;
