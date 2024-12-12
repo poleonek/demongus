@@ -61,8 +61,8 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
         case SDL_EVENT_WINDOW_RESIZED:
         {
-            app->width = event->window.data1;
-            app->height = event->window.data2;
+            app->window_width = event->window.data1;
+            app->window_height = event->window.data2;
         } break;
 
         case SDL_EVENT_KEY_UP:
@@ -88,21 +88,68 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
     return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
+static void Game_ParseCmd(AppState *app, int argc, char** argv)
 {
-    bool is_server = false;
-    for (int arg_index = 1; arg_index < argc; arg_index += 1)
+    for (int i = 1; i < argc; i += 1)
     {
-        const char *arg = argv[arg_index];
+        const char *arg = argv[i];
         if (0 == strcmp(arg, "-server"))
         {
-            is_server = true;
+            app->net.is_server = true;
+        }
+        else if (0 == strcmp(arg, "-top"))
+        {
+            app->window_on_top = true;
+        }
+        else if (0 == strcmp(arg, "-b"))
+        {
+            app->window_borderless = true;
+        }
+        else if (0 == strcmp(arg, "-w") ||
+                 0 == strcmp(arg, "-h") ||
+                 0 == strcmp(arg, "-px") ||
+                 0 == strcmp(arg, "-py"))
+        {
+            bool found_number = false;
+            if (i + 1 < argc)
+            {
+                const char *next_arg = argv[i + 1];
+                int number = SDL_strtoul(next_arg, 0, 0);
+                if (number > 0)
+                {
+                    found_number = true;
+                    if      (0 == strcmp(arg, "-w"))  app->window_width = number;
+                    else if (0 == strcmp(arg, "-h"))  app->window_height = number;
+                    else if (0 == strcmp(arg, "-px")) app->window_px = number;
+                    else if (0 == strcmp(arg, "-py")) app->window_py = number;
+                }
+            }
+
+            if (!found_number)
+            {
+                SDL_Log("%s needs to be followed by positive number", arg);
+            }
         }
         else
         {
             SDL_Log("Unhandled argument: %s", arg);
         }
     }
+}
+
+SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
+{
+    *appstate = SDL_calloc(1, sizeof(AppState));
+    AppState *app = (AppState *)*appstate;
+    if (!app)
+    {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to allocate appstate", SDL_GetError(), NULL);
+        return SDL_APP_FAILURE;
+    }
+    app->window_width = WINDOW_WIDTH;
+    app->window_height = WINDOW_HEIGHT;
+
+    Game_ParseCmd(app, argc, argv);
 
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
@@ -116,25 +163,29 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
         return SDL_APP_FAILURE;
     }
 
-    *appstate = SDL_calloc(1, sizeof(AppState));
-    AppState* app = (AppState*)*appstate;
-    if (!app)
-    {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to allocate appstate", SDL_GetError(), NULL);
-        return SDL_APP_FAILURE;
-    }
-    app->width = WINDOW_WIDTH;
-    app->height = WINDOW_HEIGHT;
+    SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE|SDL_WINDOW_HIDDEN;
+    window_flags |= (app->window_on_top ? SDL_WINDOW_ALWAYS_ON_TOP : 0);
+    window_flags |= (app->window_borderless ? SDL_WINDOW_BORDERLESS : 0);
 
-    if (!SDL_CreateWindowAndRenderer("demongus", app->width, app->height,
-                                     SDL_WINDOW_RESIZABLE, &app->window, &app->renderer))
+    if (!SDL_CreateWindowAndRenderer("demongus",
+                                     app->window_width, app->window_height,
+                                     window_flags,
+                                     &app->window, &app->renderer))
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to create window/renderer", SDL_GetError(), NULL);
         return SDL_APP_FAILURE;
     }
 
+    if (app->window_px || app->window_py)
+    {
+        int x = (app->window_px ? app->window_px : SDL_WINDOWPOS_UNDEFINED);
+        int y = (app->window_py ? app->window_py : SDL_WINDOWPOS_UNDEFINED);
+        SDL_SetWindowPosition(app->window, x, y);
+    }
+
+    SDL_ShowWindow(app->window);
+
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
-    app->net.is_server = is_server;
     Game_Init(app);
 
     return SDL_APP_CONTINUE;

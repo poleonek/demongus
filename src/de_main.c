@@ -243,7 +243,7 @@ static void Game_VerticesCameraTransform(AppState *app, V2 verts[4], float camer
         verts[i].y += window_transform.y;
 
         // fix y axis direction to +Y up (SDL uses +Y down, -Y up)
-        verts[i].y = app->height - verts[i].y;
+        verts[i].y = app->window_height - verts[i].y;
     }
 }
 
@@ -271,10 +271,10 @@ static void Game_IssueDrawCommands(AppState *app)
     {
         float camera_scale = 1.f;
         {
-            float wh = Max(app->width, app->height); // pick bigger window dimension
+            float wh = Max(app->window_width, app->window_height); // pick bigger window dimension
             camera_scale = wh / app->camera_range;
         }
-        V2 window_transform = (V2){app->width*0.5f, app->height*0.5f};
+        V2 window_transform = (V2){app->window_width*0.5f, app->window_height*0.5f};
 
         ForU32(object_index, app->object_count)
         {

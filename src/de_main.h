@@ -80,7 +80,10 @@ typedef struct
     // SDL, window stuff
     SDL_Window* window;
     SDL_Renderer* renderer;
-    int width, height;
+    int window_width, window_height;
+    int window_px, window_py; // initial window px, py specified by cmd options, 0 if wasn't set
+    bool window_on_top;
+    bool window_borderless;
 
     // user input
     V2 mouse;
