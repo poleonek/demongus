@@ -54,7 +54,7 @@ static void Tick_Iterate(AppState *app)
             player->dp = V2_Scale(input->move_dir, player_speed);
         }
     }
-    
+
     // movement & collision
     ForU32(obj_id, app->object_count)
     {

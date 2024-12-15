@@ -4,6 +4,11 @@ typedef struct
     Uint64 hash; // of all values post first 16 bytes
 } Net_BufHeader;
 
+static const char *Net_Label(AppState *app)
+{
+    return app->net.is_server ? "SERVER" : "CLIENT";
+}
+
 static Uint8 *Net_BufAlloc(AppState *app, Uint32 size)
 {
     Uint8 *result = app->net.buf + app->net.buf_used;
@@ -29,28 +34,52 @@ static Uint8 *Net_BufMemcpy(AppState *app, void *data, Uint32 size)
     return result;
 }
 
-
-static const char *Net_Label(AppState *app)
+static void Net_BufSend(AppState *app, Net_User destination)
 {
-    return app->net.is_server ? "SERVER" : "CLIENT";
+    bool send_res = SDLNet_SendDatagram(app->net.socket,
+                                        destination.address,
+                                        destination.port,
+                                        app->net.buf, app->net.buf_used);
+    SDL_Log("%s: Sending buffer of size %d to %s:%d; %s",
+            Net_Label(app), app->net.buf_used,
+            SDLNet_GetAddressString(destination.address),
+            (int)destination.port,
+            send_res ? "success" : "fail");
+}
+
+static void Net_BufSendFlush(AppState *app)
+{
+    if (app->net.is_server)
+    {
+        ForU32(i, app->net.user_count)
+        {
+            Net_BufSend(app, app->net.users[i]);
+        }
+    }
+    else
+    {
+        Net_BufSend(app, app->net.server_user);
+    }
+
+    app->net.buf_used = 0;
 }
 
 static Net_User *Net_FindUser(AppState *app, SDLNet_Address *address)
 {
-    ForU32(i, app->net.server.user_count)
+    ForU32(i, app->net.user_count)
     {
-        if (app->net.server.users[i].address == address)
-            return app->net.server.users + i;
+        if (app->net.users[i].address == address)
+            return app->net.users + i;
     }
     return 0;
 }
 
 static Net_User *Net_AddUser(AppState *app, SDLNet_Address *address, Uint16 port)
 {
-    if (app->net.server.user_count < ArrayCount(app->net.server.users))
+    if (app->net.user_count < ArrayCount(app->net.users))
     {
-        Net_User *user = app->net.server.users + app->net.server.user_count;
-        app->net.server.user_count += 1;
+        Net_User *user = app->net.users + app->net.user_count;
+        app->net.user_count += 1;
         user->address = SDLNet_RefAddress(address);
         user->port = port;
         return user;
@@ -58,54 +87,69 @@ static Net_User *Net_AddUser(AppState *app, SDLNet_Address *address, Uint16 port
     return 0;
 }
 
+static bool Net_UserMatch(Net_User a, Net_User b)
+{
+    return (a.port == b.port &&
+            SDLNet_CompareAddresses(a.address, b.address) != 0);
+}
+
+static bool Net_UserMatchAddrPort(Net_User a, SDLNet_Address *address, Uint16 port)
+{
+    return (a.port == port &&
+            SDLNet_CompareAddresses(a.address, address) != 0);
+}
+
 static void Net_SendData(AppState *app)
 {
     bool is_server = app->net.is_server;
     bool is_client = !app->net.is_server;
-    
-    if (is_client)
+
+    if (is_server)
     {
         Net_BufHeader header = {};
         header.magic_value = NET_MAGIC_VALUE;
-        
+
         Uint8 *buf_header = Net_BufAlloc(app, sizeof(Net_BufHeader));
         (void)buf_header;
-        
-        
+
+
         ForArray(i, app->network_ids)
         {
             Object *obj = Object_Network(app, i);
             if (Object_IsZero(app, obj))
                 continue;
-            
+
             Tick_Command cmd = {};
             cmd.tick_id = app->tick_id;
             cmd.kind = Tick_Cmd_NetworkObj;
+            cmd.network_slot = i;
             Net_BufMemcpy(app, &cmd, sizeof(cmd));
-            
+
             Net_BufMemcpy(app, obj, sizeof(*obj));
         }
+
+        Net_BufSendFlush(app);
     }
-    
-    
+
+
     if (is_client && ((app->tick_id % 640) == 0))
     {
         char send_buf[] = "I'm a client and I like sending messages.";
         bool send_res = SDLNet_SendDatagram(app->net.socket,
-                                            app->net.client.server_address,
-                                            app->net.client.server_port,
+                                            app->net.server_user.address,
+                                            app->net.server_user.port,
                                             send_buf, sizeof(send_buf));
         SDL_Log("%s: SendDatagram result: %s",
                 Net_Label(app), send_res ? "success" : "fail");
     }
-    
+
     if (is_server && ((app->tick_id % 1400) == 123))
     {
         char send_buf[] = "Hello, I'm a server.";
-        ForU32(i, app->net.server.user_count)
+        ForU32(i, app->net.user_count)
         {
-            Net_User *user = app->net.server.users + i;
-            
+            Net_User *user = app->net.users + i;
+
             bool send_res = SDLNet_SendDatagram(app->net.socket,
                                                 user->address,
                                                 user->port,
@@ -133,8 +177,7 @@ static void Net_ReceiveData(AppState *app)
 
         if (!app->net.is_server)
         {
-            if ((dgram->port != app->net.client.server_port) ||
-                (SDLNet_CompareAddresses(dgram->addr, app->net.client.server_address) != 0))
+            if (Net_UserMatchAddrPort(app->net.server_user, dgram->addr, dgram->port))
             {
                 SDL_Log("%s: Ignoring message from non-server address %s:%d",
                         Net_Label(app),
@@ -178,18 +221,18 @@ static void Net_Init(AppState *app)
         const char *hostname = "localhost";
         SDL_Log("%s: Resolving server hostname '%s' ...",
                 Net_Label(app), hostname);
-        app->net.client.server_address = SDLNet_ResolveHostname(hostname);
-        app->net.client.server_port = NET_DEFAULT_SEVER_PORT;
-        if (app->net.client.server_address)
+        app->net.server_user.address = SDLNet_ResolveHostname(hostname);
+        app->net.server_user.port = NET_DEFAULT_SEVER_PORT;
+        if (app->net.server_user.address)
         {
-            if (SDLNet_WaitUntilResolved(app->net.client.server_address, -1) < 0)
+            if (SDLNet_WaitUntilResolved(app->net.server_user.address, -1) < 0)
             {
-                SDLNet_UnrefAddress(app->net.client.server_address);
-                app->net.client.server_address = 0;
+                SDLNet_UnrefAddress(app->net.server_user.address);
+                app->net.server_user.address = 0;
             }
         }
 
-        if (!app->net.client.server_address)
+        if (!app->net.server_user.address)
         {
             app->net.err = true;
             SDL_Log("%s: Failed to resolve server hostname '%s'",

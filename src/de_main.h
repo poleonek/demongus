@@ -89,6 +89,7 @@ typedef struct
 {
     Uint64 tick_id;
     Tick_CommandKind kind;
+    Uint32 network_slot;
 } Tick_Command;
 
 typedef struct
@@ -161,16 +162,9 @@ typedef struct
         Uint32 buf_used;
         bool buf_err; // true on overflows
 
-        struct
-        {
-            Net_User users[16];
-            Uint32 user_count;
-        } server;
-        struct
-        {
-            SDLNet_Address *server_address;
-            Uint16 server_port;
-        } client;
+        Net_User users[16];
+        Uint32 user_count;
+        Net_User server_user;
     } net;
 
     // debug

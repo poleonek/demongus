@@ -302,14 +302,14 @@ static void Game_Init(AppState *app)
         }
     }
 
-    
+
     // add network objs
     if (app->net.is_server)
     {
         app->network_ids[0] = Object_IdFromPointer(app, Object_CreatePlayer(app));
     }
-    
-    
+
+
     // initialize normals (for collision) and vertices (for collision & drawing)
     ForU32(obj_id, app->object_count)
     {
