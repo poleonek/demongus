@@ -100,7 +100,6 @@ typedef struct
 
 typedef struct
 {
-    Uint32 network_slot;
     Object object;
 } Tick_NetworkObj;
 

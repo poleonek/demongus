@@ -64,6 +64,20 @@ static void Net_BufSendFlush(AppState *app)
     app->net.buf_used = 0;
 }
 
+static bool Net_ConsumeMsg(S8 *msg, void *dest, Uint64 size)
+{
+    Uint64 copy_size = Min(size, msg->size);
+    bool err = copy_size != size;
+
+    if (err)
+        memset(dest, 0, size); // fill dest with zeroes
+
+    memcpy(dest, msg->str, copy_size);
+    *msg = S8_Skip(*msg, size);
+
+    return err;
+}
+
 static Net_User *Net_FindUser(AppState *app, SDLNet_Address *address)
 {
     ForU32(i, app->net.user_count)
@@ -104,15 +118,12 @@ static void Net_SendData(AppState *app)
     bool is_server = app->net.is_server;
     bool is_client = !app->net.is_server;
 
+    Net_BufHeader header = {};
+    header.magic_value = NET_MAGIC_VALUE;
+    Uint8 *buf_header = Net_BufAlloc(app, sizeof(Net_BufHeader));
+
     if (is_server)
     {
-        Net_BufHeader header = {};
-        header.magic_value = NET_MAGIC_VALUE;
-
-        Uint8 *buf_header = Net_BufAlloc(app, sizeof(Net_BufHeader));
-        (void)buf_header;
-
-
         ForArray(i, app->network_ids)
         {
             Object *obj = Object_Network(app, i);
@@ -127,41 +138,25 @@ static void Net_SendData(AppState *app)
 
             Net_BufMemcpy(app, obj, sizeof(*obj));
         }
-
-        Net_BufSendFlush(app);
     }
 
-
-    if (is_client && ((app->tick_id % 640) == 0))
+    if (is_client)
     {
-        char send_buf[] = "I'm a client and I like sending messages.";
-        bool send_res = SDLNet_SendDatagram(app->net.socket,
-                                            app->net.server_user.address,
-                                            app->net.server_user.port,
-                                            send_buf, sizeof(send_buf));
-        SDL_Log("%s: SendDatagram result: %s",
-                Net_Label(app), send_res ? "success" : "fail");
+        // empty msg
     }
 
-    if (is_server && ((app->tick_id % 1400) == 123))
-    {
-        char send_buf[] = "Hello, I'm a server.";
-        ForU32(i, app->net.user_count)
-        {
-            Net_User *user = app->net.users + i;
-
-            bool send_res = SDLNet_SendDatagram(app->net.socket,
-                                                user->address,
-                                                user->port,
-                                                send_buf, sizeof(send_buf));
-            SDL_Log("%s: SendDatagram result: %s",
-                    Net_Label(app), send_res ? "success" : "fail");
-        }
-    }
+    S8 msg = S8_Make(app->net.buf, app->net.buf_used);
+    msg = S8_Skip(msg, sizeof(header));
+    header.hash = S8_Hash(0, msg);
+    memcpy(buf_header, &header, sizeof(header));
+    Net_BufSendFlush(app);
 }
 
 static void Net_ReceiveData(AppState *app)
 {
+    bool is_server = app->net.is_server;
+    bool is_client = !app->net.is_server;
+
     for (;;)
     {
         SDLNet_Datagram *dgram = 0;
@@ -175,9 +170,22 @@ static void Net_ReceiveData(AppState *app)
                 SDLNet_GetAddressString(dgram->addr),
                 (int)dgram->port);
 
+        if (is_client)
+        {
+            if (Net_UserMatchAddrPort(app->net.server_user, dgram->addr, dgram->port))
+            {
+                SDL_Log("%s: dgram rejected - received from non-server address %s:%d",
+                        Net_Label(app),
+                        SDLNet_GetAddressString(dgram->addr), (int)dgram->port);
+                goto datagram_cleanup;
+            }
+        }
+
+        S8 msg = S8_Make(dgram->buf, dgram->buflen);
+
         // validate header
         {
-            if (dgram->buflen < sizeof(Net_BufHeader))
+            if (msg.size < sizeof(Net_BufHeader))
             {
                 SDL_Log("%s: dgram rejected - too small for BufHeader",
                         Net_Label(app));
@@ -185,7 +193,8 @@ static void Net_ReceiveData(AppState *app)
             }
 
             Net_BufHeader header;
-            memcpy(&header, dgram->buf, dgram->buflen);
+            memcpy(&header, msg.str, sizeof(header));
+            msg = S8_Skip(msg, sizeof(header));
 
             if (header.magic_value != NET_MAGIC_VALUE)
             {
@@ -194,34 +203,60 @@ static void Net_ReceiveData(AppState *app)
                 goto datagram_cleanup;
             }
 
-
-
-
-        }
-
-
-        if (!app->net.is_server)
-        {
-            if (Net_UserMatchAddrPort(app->net.server_user, dgram->addr, dgram->port))
+            Uint64 msg_hash = S8_Hash(0, msg);
+            if (header.hash != msg_hash)
             {
-                SDL_Log("%s: Ignoring message from non-server address %s:%d",
-                        Net_Label(app),
-                        SDLNet_GetAddressString(dgram->addr), (int)dgram->port);
+                SDL_Log("%s: dgram rejected - dgram hash (%llu) != calculated hash (%llu)",
+                        Net_Label(app), header.hash, msg_hash);
                 goto datagram_cleanup;
             }
         }
 
-        SDL_Log("%s MSG: %.*s",
-                Net_Label(app),
-                (int)dgram->buflen, (char *)dgram->buf);
-
-        if (app->net.is_server)
+        if (is_server)
         {
             if (!Net_FindUser(app, dgram->addr))
             {
                 SDL_Log("%s: saving user with port: %d",
                         Net_Label(app), (int)dgram->port);
                 Net_AddUser(app, dgram->addr, dgram->port);
+            }
+        }
+
+        if (is_client)
+        {
+            if (msg.size)
+            {
+                Tick_Command cmd;
+                Net_ConsumeMsg(&msg, &cmd, sizeof(cmd));
+
+                if (cmd.network_slot >= ArrayCount(app->network_ids))
+                {
+                    SDL_Log("%s: Network slot overflow: %d",
+                            Net_Label(app), (int)cmd.network_slot);
+                    goto datagram_cleanup;
+                }
+
+                if (cmd.kind != Tick_Cmd_NetworkObj)
+                {
+                    SDL_Log("%s: Unsupported cmd kind: %d",
+                            Net_Label(app), (int)cmd.kind);
+                    goto datagram_cleanup;
+                }
+
+                if (cmd.kind == Tick_Cmd_NetworkObj)
+                {
+                    Tick_NetworkObj msg_obj;
+                    Net_ConsumeMsg(&msg, &msg_obj, sizeof(msg_obj));
+
+                    if (!app->network_ids[cmd.network_slot])
+                    {
+                        app->network_ids[cmd.network_slot] =
+                            Object_IdFromPointer(app, Object_Create(app, 0));
+                    }
+
+                    Object *obj = Object_Network(app, cmd.network_slot);
+                    *obj = msg_obj.object;
+                }
             }
         }
 
@@ -233,15 +268,28 @@ static void Net_ReceiveData(AppState *app)
 static void Net_Iterate(AppState *app)
 {
     if (app->net.err) return;
+
+    // hacky temporary network activity rate-limitting
+    {
+        static Uint64 last_timestamp = 0;
+        if (app->frame_time < last_timestamp + 1000)
+            return;
+
+        last_timestamp = app->frame_time;
+    }
+
     Net_ReceiveData(app);
     Net_SendData(app);
 }
 
 static void Net_Init(AppState *app)
 {
-    SDL_Log(app->net.is_server ? "Launching as server" : "Launching as client");
+    bool is_server = app->net.is_server;
+    bool is_client = !app->net.is_server;
 
-    if (!app->net.is_server)
+    SDL_Log(is_server ? "Launching as server" : "Launching as client");
+
+    if (is_client)
     {
         const char *hostname = "localhost";
         SDL_Log("%s: Resolving server hostname '%s' ...",
@@ -271,6 +319,11 @@ static void Net_Init(AppState *app)
     {
         app->net.err = true;
         SDL_Log("%s: Failed to create socket",
+                Net_Label(app));
+    }
+    else
+    {
+        SDL_Log("%s: Created socket",
                 Net_Label(app));
     }
 }
