@@ -78,11 +78,30 @@ typedef struct
     Uint16 port;
 } Net_User;
 
+typedef enum
+{
+    Tick_Cmd_None,
+    Tick_Cmd_Input,
+    Tick_Cmd_NetworkObj,
+} Tick_CommandKind;
+
+typedef struct
+{
+    Uint64 tick_id;
+    Tick_CommandKind kind;
+} Tick_Command;
+
 typedef struct
 {
     V2 move_dir;
     // action buttons etc will be added here
-} TickInput;
+} Tick_Input;
+
+typedef struct
+{
+    Uint32 network_slot;
+    Object object;
+} Tick_NetworkObj;
 
 typedef struct
 {
@@ -100,7 +119,7 @@ typedef struct
     bool keyboard[SDL_SCANCODE_COUNT]; // true == key is down
 
     // circular buffer with tick inputs
-    TickInput tick_input_buf[NET_MAX_TICK_HISTORY];
+    Tick_Input tick_input_buf[NET_MAX_TICK_HISTORY];
     Uint64 tick_input_min;
     Uint64 tick_input_max; // one past last
 
@@ -114,13 +133,15 @@ typedef struct
     // objects
     Object object_pool[4096];
     Uint32 object_count;
-    Uint32 player_ids[2];
+    Uint32 network_ids[16];
+    Uint32 player_network_slot;
     Uint32 special_wall;
 
     // sprites
     Sprite sprite_pool[32];
     Uint32 sprite_count;
     Uint32 sprite_overlay_id;
+    Sprite *sprite_dude; // @todo better organization
 
     // camera
     V2 camera_p;

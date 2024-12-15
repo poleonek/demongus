@@ -2,7 +2,7 @@
 // Physic tick update
 // @todo this should run on a separate thread
 //
-static TickInput *Tick_PollInput(AppState *app)
+static Tick_Input *Tick_PollInput(AppState *app)
 {
     // select slot from circular buffer
     Uint64 current = app->tick_input_max % ArrayCount(app->tick_input_buf);
@@ -14,7 +14,7 @@ static TickInput *Tick_PollInput(AppState *app)
             app->tick_input_min += 1;
     }
 
-    TickInput *input = app->tick_input_buf + current;
+    Tick_Input *input = app->tick_input_buf + current;
 
     V2 dir = {0};
     if (app->keyboard[SDL_SCANCODE_W] || app->keyboard[SDL_SCANCODE_UP])    dir.y += 1;
@@ -28,7 +28,7 @@ static TickInput *Tick_PollInput(AppState *app)
 
 static void Tick_Iterate(AppState *app)
 {
-    TickInput *input = Tick_PollInput(app);
+    Tick_Input *input = Tick_PollInput(app);
 
     // update prev_p
     ForU32(obj_id, app->object_count)
@@ -46,29 +46,15 @@ static void Tick_Iterate(AppState *app)
     }
 
     // player input
-    ForArray(player_id_index, app->player_ids)
     {
-        Object *player = Object_PlayerFromIndex(app, player_id_index);
-
-        bool ice_skating_dlc = (player_id_index == 1);
-        if (ice_skating_dlc)
-        {
-            // @todo(mg): this is bad, we need a fixed timestep
-            float player_speed = 0.005f * TIME_STEP;
-            V2 player_ddp = V2_Scale(input->move_dir, player_speed);
-            player->dp = V2_Add(player->dp, player_ddp);
-
-            float drag = -0.999f * TIME_STEP;
-            V2 player_drag = V2_Scale(player->dp, drag);
-            player->dp = V2_Add(player->dp, player_drag);
-        }
-        else
+        Object *player = Object_Network(app, app->player_network_slot);
+        if (!Object_IsZero(app, player))
         {
             float player_speed = 5.f * TIME_STEP;
             player->dp = V2_Scale(input->move_dir, player_speed);
         }
     }
-
+    
     // movement & collision
     ForU32(obj_id, app->object_count)
     {
@@ -230,7 +216,7 @@ static void Tick_Iterate(AppState *app)
 
     // move camera
     {
-        Object *player = Object_Get(app, app->player_ids[0]);
+        Object *player = Object_Network(app, app->player_network_slot);
         app->camera_p = player->p;
     }
 }

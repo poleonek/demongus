@@ -217,6 +217,24 @@ static void Game_Iterate(AppState *app)
     Game_IssueDrawCommands(app);
 }
 
+static Object *Object_CreatePlayer(AppState *app)
+{
+    Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
+    player->p.x = -0.f;
+    float scale = 0.0175f;
+    V2 collision_dim = {0};
+    collision_dim.x = app->sprite_dude->tex->w * scale;
+    collision_dim.y = (app->sprite_dude->tex->h / 4.f) * scale;
+    player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+    player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
+    player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
+    player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
+    player->color = ColorF_RGB(1,1,1);
+    //player->rotation = 0.3f;
+    player->sprite_id = Sprite_IdFromPointer(app, app->sprite_dude);
+    return player;
+}
+
 static void Game_Init(AppState *app)
 {
     // init debug options
@@ -239,40 +257,8 @@ static void Game_Init(AppState *app)
     app->sprite_overlay_id = Sprite_IdFromPointer(app, sprite_overlay);
 
     Sprite *sprite_crate = Sprite_Create(app, "../res/pxart/crate.png", 1);
-    Sprite *sprite_dude = Sprite_Create(app, "../res/pxart/dude_walk.png", 5);
+    app->sprite_dude = Sprite_Create(app, "../res/pxart/dude_walk.png", 5);
     Sprite *sprite_ref = Sprite_Create(app, "../res/pxart/reference.png", 1);
-
-    // add player
-    {
-        Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
-        player->p.x = -0.f;
-        float scale = 0.0175f;
-        V2 collision_dim = {0};
-        collision_dim.x = sprite_dude->tex->w * scale;
-        collision_dim.y = (sprite_dude->tex->h / 4.f) * scale;
-        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-        player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-        player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
-        player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
-        player->color = ColorF_RGB(1,1,1);
-        //player->rotation = 0.3f;
-        player->sprite_id = Sprite_IdFromPointer(app, sprite_dude);
-        app->player_ids[0] = Object_IdFromPointer(app, player);
-    }
-    // add player2
-    {
-        Object *player = Object_Create(app, ObjectFlag_Draw|ObjectFlag_Move|ObjectFlag_Collide);
-        player->p.x = 3.f;
-        V2 collision_dim = {0};
-        collision_dim.x = 0.3f;
-        collision_dim.y = 0.9f;
-        player->vertices_relative_to_p.arr[0] = (V2){player->p.x - collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-        player->vertices_relative_to_p.arr[1] = (V2){player->p.x + collision_dim.x / 2, player->p.y - collision_dim.y / 2};
-        player->vertices_relative_to_p.arr[2] = (V2){player->p.x + collision_dim.x / 2, player->p.y + collision_dim.y / 2};
-        player->vertices_relative_to_p.arr[3] = (V2){player->p.x - collision_dim.x / 2, player->p.y + collision_dim.y / 2};
-        player->color = ColorF_RGB(0.4f, .4f, .94f);
-        app->player_ids[1] = Object_IdFromPointer(app, player);
-    }
 
     // add walls
     {
@@ -316,6 +302,14 @@ static void Game_Init(AppState *app)
         }
     }
 
+    
+    // add network objs
+    if (app->net.is_server)
+    {
+        app->network_ids[0] = Object_IdFromPointer(app, Object_CreatePlayer(app));
+    }
+    
+    
     // initialize normals (for collision) and vertices (for collision & drawing)
     ForU32(obj_id, app->object_count)
     {

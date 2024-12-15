@@ -58,6 +58,64 @@ static Net_User *Net_AddUser(AppState *app, SDLNet_Address *address, Uint16 port
     return 0;
 }
 
+static void Net_SendData(AppState *app)
+{
+    bool is_server = app->net.is_server;
+    bool is_client = !app->net.is_server;
+    
+    if (is_client)
+    {
+        Net_BufHeader header = {};
+        header.magic_value = NET_MAGIC_VALUE;
+        
+        Uint8 *buf_header = Net_BufAlloc(app, sizeof(Net_BufHeader));
+        (void)buf_header;
+        
+        
+        ForArray(i, app->network_ids)
+        {
+            Object *obj = Object_Network(app, i);
+            if (Object_IsZero(app, obj))
+                continue;
+            
+            Tick_Command cmd = {};
+            cmd.tick_id = app->tick_id;
+            cmd.kind = Tick_Cmd_NetworkObj;
+            Net_BufMemcpy(app, &cmd, sizeof(cmd));
+            
+            Net_BufMemcpy(app, obj, sizeof(*obj));
+        }
+    }
+    
+    
+    if (is_client && ((app->tick_id % 640) == 0))
+    {
+        char send_buf[] = "I'm a client and I like sending messages.";
+        bool send_res = SDLNet_SendDatagram(app->net.socket,
+                                            app->net.client.server_address,
+                                            app->net.client.server_port,
+                                            send_buf, sizeof(send_buf));
+        SDL_Log("%s: SendDatagram result: %s",
+                Net_Label(app), send_res ? "success" : "fail");
+    }
+    
+    if (is_server && ((app->tick_id % 1400) == 123))
+    {
+        char send_buf[] = "Hello, I'm a server.";
+        ForU32(i, app->net.server.user_count)
+        {
+            Net_User *user = app->net.server.users + i;
+            
+            bool send_res = SDLNet_SendDatagram(app->net.socket,
+                                                user->address,
+                                                user->port,
+                                                send_buf, sizeof(send_buf));
+            SDL_Log("%s: SendDatagram result: %s",
+                    Net_Label(app), send_res ? "success" : "fail");
+        }
+    }
+}
+
 static void Net_ReceiveData(AppState *app)
 {
     for (;;)
@@ -101,52 +159,6 @@ static void Net_ReceiveData(AppState *app)
 
         datagram_cleanup:
         SDLNet_DestroyDatagram(dgram);
-    }
-}
-
-static void Net_SendData(AppState *app)
-{
-    bool is_server = app->net.is_server;
-    bool is_client = !app->net.is_server;
-
-    if (is_client)
-    {
-        Net_BufHeader header = {};
-        header.magic_value = NET_MAGIC_VALUE;
-
-        Uint8 *buf_header = Net_BufAlloc(app, sizeof(Net_BufHeader));
-        (void)buf_header;
-
-
-
-    }
-
-
-    if (is_client && ((app->tick_id % 640) == 0))
-    {
-        char send_buf[] = "I'm a client and I like sending messages.";
-        bool send_res = SDLNet_SendDatagram(app->net.socket,
-                                            app->net.client.server_address,
-                                            app->net.client.server_port,
-                                            send_buf, sizeof(send_buf));
-        SDL_Log("%s: SendDatagram result: %s",
-                Net_Label(app), send_res ? "success" : "fail");
-    }
-
-    if (is_server && ((app->tick_id % 1400) == 123))
-    {
-        char send_buf[] = "Hello, I'm a server.";
-        ForU32(i, app->net.server.user_count)
-        {
-            Net_User *user = app->net.server.users + i;
-
-            bool send_res = SDLNet_SendDatagram(app->net.socket,
-                                                user->address,
-                                                user->port,
-                                                send_buf, sizeof(send_buf));
-            SDL_Log("%s: SendDatagram result: %s",
-                    Net_Label(app), send_res ? "success" : "fail");
-        }
     }
 }
 

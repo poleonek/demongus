@@ -1,15 +1,20 @@
-#include <SDL3/SDL_stdinc.h>
 static Object *Object_Get(AppState *app, Uint32 id)
 {
     Assert(app->object_count < ArrayCount(app->object_pool));
     Assert(id < app->object_count);
     return app->object_pool + id;
 }
-static Object *Object_PlayerFromIndex(AppState *app, Uint32 player_index)
+
+static bool Object_IsZero(AppState *app, Object *obj)
 {
-    Assert(player_index < ArrayCount(app->player_ids));
-    Uint32 player_id = app->player_ids[player_index];
-    return Object_Get(app, player_id);
+    return obj == app->object_pool + 0;
+}
+
+static Object *Object_Network(AppState *app, Uint32 network_slot)
+{
+    Assert(network_slot < ArrayCount(app->network_ids));
+    Uint32 id = app->network_ids[network_slot];
+    return Object_Get(app, id);
 }
 
 // @info(mg) This function will probably be replaced in the future
