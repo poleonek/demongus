@@ -163,11 +163,24 @@ static float RngF_MaxDistance(RngF a, RngF b)
     return Max(d0, d1);
 }
 
-static float signum(float a)
+static float signum(float a) // @todo delete? same as SignF
 {
     if (a < 0)
         return -1;
     return 1;
+}
+
+static Uint64 HashU64(Uint64 seed, void *data, Uint64 size)
+{
+    // Idk where I even got this from;
+    // most probably there are better cheap hash functions out there
+    Uint8 *d = (Uint8 *)data;
+    Uint64 res = seed;
+    ForU64(i, size)
+    {
+        res = ((res << 5) + res) + d[i];
+    }
+    return res;
 }
 
 // ---

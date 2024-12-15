@@ -175,6 +175,31 @@ static void Net_ReceiveData(AppState *app)
                 SDLNet_GetAddressString(dgram->addr),
                 (int)dgram->port);
 
+        // validate header
+        {
+            if (dgram->buflen < sizeof(Net_BufHeader))
+            {
+                SDL_Log("%s: dgram rejected - too small for BufHeader",
+                        Net_Label(app));
+                goto datagram_cleanup;
+            }
+
+            Net_BufHeader header;
+            memcpy(&header, dgram->buf, dgram->buflen);
+
+            if (header.magic_value != NET_MAGIC_VALUE)
+            {
+                SDL_Log("%s: dgram rejected - invalid magic value %llu",
+                        Net_Label(app), header.magic_value);
+                goto datagram_cleanup;
+            }
+
+
+
+
+        }
+
+
         if (!app->net.is_server)
         {
             if (Net_UserMatchAddrPort(app->net.server_user, dgram->addr, dgram->port))
