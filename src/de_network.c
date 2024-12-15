@@ -1,3 +1,9 @@
+//
+// disable log spam
+//
+#define NET_VERBOSE_LOG(...)
+//#define NET_VERBOSE_LOG(...) SDL_Log(__VA_ARG__)
+
 typedef struct
 {
     Uint64 magic_value;
@@ -40,11 +46,13 @@ static void Net_BufSend(AppState *app, Net_User destination)
                                         destination.address,
                                         destination.port,
                                         app->net.buf, app->net.buf_used);
-    SDL_Log("%s: Sending buffer of size %d to %s:%d; %s",
-            Net_Label(app), app->net.buf_used,
-            SDLNet_GetAddressString(destination.address),
-            (int)destination.port,
-            send_res ? "success" : "fail");
+    (void)send_res;
+
+    NET_VERBOSE_LOG("%s: Sending buffer of size %d to %s:%d; %s",
+                    Net_Label(app), app->net.buf_used,
+                    SDLNet_GetAddressString(destination.address),
+                    (int)destination.port,
+                    send_res ? "success" : "fail");
 }
 
 static void Net_BufSendFlush(AppState *app)
@@ -78,11 +86,23 @@ static bool Net_ConsumeMsg(S8 *msg, void *dest, Uint64 size)
     return err;
 }
 
-static Net_User *Net_FindUser(AppState *app, SDLNet_Address *address)
+static bool Net_UserMatch(Net_User a, Net_User b)
+{
+    return (a.port == b.port &&
+            SDLNet_CompareAddresses(a.address, b.address) == 0);
+}
+
+static bool Net_UserMatchAddrPort(Net_User a, SDLNet_Address *address, Uint16 port)
+{
+    return (a.port == port &&
+            SDLNet_CompareAddresses(a.address, address) == 0);
+}
+
+static Net_User *Net_FindUser(AppState *app, SDLNet_Address *address, Uint16 port)
 {
     ForU32(i, app->net.user_count)
     {
-        if (app->net.users[i].address == address)
+        if (Net_UserMatchAddrPort(app->net.users[i], address, port))
             return app->net.users + i;
     }
     return 0;
@@ -99,18 +119,6 @@ static Net_User *Net_AddUser(AppState *app, SDLNet_Address *address, Uint16 port
         return user;
     }
     return 0;
-}
-
-static bool Net_UserMatch(Net_User a, Net_User b)
-{
-    return (a.port == b.port &&
-            SDLNet_CompareAddresses(a.address, b.address) != 0);
-}
-
-static bool Net_UserMatchAddrPort(Net_User a, SDLNet_Address *address, Uint16 port)
-{
-    return (a.port == port &&
-            SDLNet_CompareAddresses(a.address, address) != 0);
 }
 
 static void Net_SendData(AppState *app)
@@ -164,15 +172,15 @@ static void Net_ReceiveData(AppState *app)
         if (!receive) break;
         if (!dgram) break;
 
-        SDL_Log("%s: got %d-byte datagram from %s:%d",
-                Net_Label(app),
-                (int)dgram->buflen,
-                SDLNet_GetAddressString(dgram->addr),
-                (int)dgram->port);
+        NET_VERBOSE_LOG("%s: got %d-byte datagram from %s:%d",
+                        Net_Label(app),
+                        (int)dgram->buflen,
+                        SDLNet_GetAddressString(dgram->addr),
+                        (int)dgram->port);
 
         if (is_client)
         {
-            if (Net_UserMatchAddrPort(app->net.server_user, dgram->addr, dgram->port))
+            if (!Net_UserMatchAddrPort(app->net.server_user, dgram->addr, dgram->port))
             {
                 SDL_Log("%s: dgram rejected - received from non-server address %s:%d",
                         Net_Label(app),
@@ -214,7 +222,7 @@ static void Net_ReceiveData(AppState *app)
 
         if (is_server)
         {
-            if (!Net_FindUser(app, dgram->addr))
+            if (!Net_FindUser(app, dgram->addr, dgram->port))
             {
                 SDL_Log("%s: saving user with port: %d",
                         Net_Label(app), (int)dgram->port);
@@ -272,7 +280,7 @@ static void Net_Iterate(AppState *app)
     // hacky temporary network activity rate-limitting
     {
         static Uint64 last_timestamp = 0;
-        if (app->frame_time < last_timestamp + 1000)
+        if (app->frame_time < last_timestamp + 1)
             return;
 
         last_timestamp = app->frame_time;
