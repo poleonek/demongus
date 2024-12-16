@@ -37,20 +37,12 @@ static void Tick_Iterate(AppState *app)
         obj->prev_p = obj->p;
     }
 
-    // animate special wall
-    {
-        Object *obj = Object_Get(app, app->special_wall);
-        obj->collision_rotation = WrapF(0.f, 1.f, obj->collision_rotation + TIME_STEP);
-        obj->sprite_rotation = obj->collision_rotation;
-        Object_UpdateCollisionVerticesAndNormals(obj);
-    }
-
     // player input
     {
         Object *player = Object_Network(app, app->player_network_slot);
         if (!Object_IsZero(app, player))
         {
-            float player_speed = 5.f * TIME_STEP;
+            float player_speed = 200.f * TIME_STEP;
             player->dp = V2_Scale(input->move_dir, player_speed);
         }
     }
@@ -67,7 +59,11 @@ static void Tick_Iterate(AppState *app)
         if (!(obj->flags & ObjectFlag_Move)) continue;
 
         obj->p = V2_Add(obj->p, obj->dp);
-        Object_UpdateCollisionVerticesAndNormals(obj);
+
+        Sprite *obj_sprite = Sprite_Get(app, obj->sprite_id);
+        Col_Vertices obj_verts = obj_sprite->collision_vertices;
+        V2_VerticesOffset(obj_verts.arr, ArrayCount(obj_verts.arr), obj->p);
+        V2 obj_center = V2_VerticesAverage(obj_verts.arr, ArrayCount(obj_verts.arr));
 
         ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
@@ -80,6 +76,11 @@ static void Tick_Iterate(AppState *app)
                 if (!(obstacle->flags & ObjectFlag_Collide)) continue;
                 if (obj == obstacle) continue;
 
+                Sprite *obstacle_sprite = Sprite_Get(app, obstacle->sprite_id);
+                Col_Vertices obstacle_verts = obstacle_sprite->collision_vertices;
+                V2_VerticesOffset(obstacle_verts.arr, ArrayCount(obstacle_verts.arr), obstacle->p);
+                V2 obstacle_center = V2_VerticesAverage(obstacle_verts.arr, ArrayCount(obstacle_verts.arr));
+
                 float biggest_dist = -FLT_MAX;
                 V2 wall_normal = {0};
 
@@ -88,32 +89,19 @@ static void Tick_Iterate(AppState *app)
                 // and from the perspective of the obstacle.
                 ForU32(sat_iteration, 2)
                 {
-                    Object *normal_obj;
-                    Object *projected_obstacle;
-                    Object_Projection a;
-                    Object_Projection b;
-                    if (sat_iteration == 0)
-                    {
-                        normal_obj = obj;
-                        projected_obstacle = obstacle;
-                    }
-                    else
-                    {
-                        normal_obj = obstacle;
-                        projected_obstacle = obj;
-                    }
+                    Col_Normals normals = (sat_iteration ?
+                                              obj_sprite->collision_normals :
+                                              obstacle_sprite->collision_normals);
 
-                    a = Object_CollisionProjection(normal_obj->collision_normals, normal_obj->collision_vertices); // @speed(mg) we could cache these per object
-                    b = Object_CollisionProjection(normal_obj->collision_normals, projected_obstacle->collision_vertices);
+                    Col_Projection a = CollisionProjection(normals, obstacle_verts);
+                    Col_Projection b = CollisionProjection(normals, obj_verts);
 
                     ForArray(i, a.arr)
                     {
-                        static_assert(ArrayCount(a.arr) == ArrayCount(obj->collision_normals.arr));
-                        V2 normal = normal_obj->collision_normals.arr[i];
+                        static_assert(ArrayCount(a.arr) == ArrayCount(normals.arr));
+                        V2 normal = normals.arr[i];
 
-                        V2 obj_col = Object_GetAvgCollisionPos(normal_obj);
-                        V2 obstacle_col = Object_GetAvgCollisionPos(projected_obstacle);
-                        V2 obstacle_dir = V2_Sub(obstacle_col, obj_col);
+                        V2 obstacle_dir = V2_Sub(obstacle_center, obj_center);
                         if (V2_Inner(normal, obstacle_dir) < 0)
                         {
                             continue;
@@ -131,13 +119,11 @@ static void Tick_Iterate(AppState *app)
                         if (d > biggest_dist)
                         {
                             biggest_dist = d;
-                            if (normal_obj == obj)
+
+                            wall_normal = normal;
+                            if (!sat_iteration)
                             {
-                                wall_normal = V2_Reverse(normal);
-                            }
-                            else
-                            {
-                                wall_normal = normal;
+                                wall_normal = V2_Reverse(wall_normal);
                             }
                         }
                     }
@@ -167,8 +153,6 @@ static void Tick_Iterate(AppState *app)
                 // we might want to do something different here!
                 if (move_out.x) obj->dp.x = 0;
                 if (move_out.y) obj->dp.y = 0;
-
-                Object_UpdateCollisionVerticesAndNormals(obj);
             }
             else
             {
@@ -183,7 +167,7 @@ static void Tick_Iterate(AppState *app)
     ForU32(obj_id, app->object_count)
     {
         Object *obj = app->object_pool + obj_id;
-        if (Sprite_Get(app, obj->sprite_id)->frame_count <= 1) continue;
+        if (Sprite_Get(app, obj->sprite_id)->tex_frames <= 1) continue;
 
         Uint32 frame_index_map[8] =
         {

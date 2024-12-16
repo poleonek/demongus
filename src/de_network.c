@@ -259,7 +259,7 @@ static void Net_ReceiveData(AppState *app)
                     if (!app->network_ids[cmd.network_slot])
                     {
                         app->network_ids[cmd.network_slot] =
-                            Object_IdFromPointer(app, Object_Create(app, 0));
+                            Object_IdFromPointer(app, Object_Create(app, 0, 0));
                     }
 
                     Object *obj = Object_Network(app, cmd.network_slot);

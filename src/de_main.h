@@ -1,7 +1,6 @@
 // ---
 // Constants
 // ---
-#define ScaleMetersPerPixel 0.025f
 #define TIME_STEP (1.f / 128.f)
 
 #define NET_DEFAULT_SEVER_PORT 21037
@@ -10,8 +9,16 @@
 
 typedef struct
 {
+    V2 arr[4];
+} Col_Vertices;
+typedef Col_Vertices Col_Normals;
+
+typedef struct
+{
     SDL_Texture *tex;
-    Uint32 frame_count;
+    Uint32 tex_frames;
+    Col_Vertices collision_vertices;
+    Col_Normals collision_normals;
 } Sprite;
 
 typedef enum {
@@ -22,31 +29,14 @@ typedef enum {
 
 typedef struct
 {
-    V2 arr[4];
-} Object_Vertices;
-typedef Object_Vertices Object_Normals;
-
-typedef struct
-{
     Uint32 flags;
     V2 p; // position of center
     V2 dp; // change of p
     V2 prev_p; // position from the last frame
 
-    float collision_rotation;
-    // calculated after applying rotation
-    Uint8 num_vertices; // @todo(poleonek) allow other numbers than 4
-    Object_Vertices vertices_relative_to_p; // constant after init
-    Object_Normals collision_normals; // right, top, left, bottom
-    Object_Vertices collision_vertices; // bottom-left, bottom-right, top-left, top-right
-
     // visuals
-    ColorF color;
     Uint32 sprite_id;
-    float sprite_rotation;
-    float sprite_scale;
-    //bool dirty_sprite_vertices;
-    //Object_Vertices sprite_vertices;
+    ColorF sprite_color;
 
     float sprite_animation_t;
     Uint32 sprite_animation_index;
@@ -119,13 +109,12 @@ typedef struct
     Uint32 object_count;
     Uint32 network_ids[16];
     Uint32 player_network_slot;
-    Uint32 special_wall;
 
     // sprites
     Sprite sprite_pool[32];
     Uint32 sprite_count;
     Uint32 sprite_overlay_id;
-    Sprite *sprite_dude; // @todo better organization
+    Uint32 sprite_dude_id; // @todo better organization
 
     // camera
     V2 camera_p;
