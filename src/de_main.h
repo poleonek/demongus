@@ -8,17 +8,6 @@
 #define NET_MAGIC_VALUE 0xfda0'dead'beef'1234llu
 #define NET_MAX_TICK_HISTORY 4096
 
-typedef enum {
-    Axis2_X,
-    Axis2_Y,
-    Axis2_COUNT
-} Axis2;
-
-static Axis2 Axis2_Other(Axis2 axis)
-{
-    return (axis == Axis2_X ? Axis2_Y : Axis2_X);
-}
-
 typedef struct
 {
     SDL_Texture *tex;
@@ -29,18 +18,13 @@ typedef enum {
     ObjectFlag_Draw          = (1 << 0),
     ObjectFlag_Move          = (1 << 1),
     ObjectFlag_Collide       = (1 << 2),
-} ObjectFlags;
+} Object_Flags;
 
 typedef struct
 {
     V2 arr[4];
-} Vertices, Normals;
-typedef union
-{
-    V2 arr[2];
-    V2 A;
-    V2 B;
-} Line;
+} Object_Vertices;
+typedef Object_Vertices Object_Normals;
 
 typedef struct
 {
@@ -52,17 +36,17 @@ typedef struct
     float collision_rotation;
     // calculated after applying rotation
     Uint8 num_vertices; // @todo(poleonek) allow other numbers than 4
-    Vertices vertices_relative_to_p; // constant after init
-    Normals collision_normals; // right, top, left, bottom
-    Vertices collision_vertices; // bottom-left, bottom-right, top-left, top-right
+    Object_Vertices vertices_relative_to_p; // constant after init
+    Object_Normals collision_normals; // right, top, left, bottom
+    Object_Vertices collision_vertices; // bottom-left, bottom-right, top-left, top-right
 
     // visuals
     ColorF color;
     Uint32 sprite_id;
     float sprite_rotation;
     float sprite_scale;
-    bool dirty_sprite_vertices;
-    Vertices sprite_vertices;
+    //bool dirty_sprite_vertices;
+    //Object_Vertices sprite_vertices;
 
     float sprite_animation_t;
     Uint32 sprite_animation_index;

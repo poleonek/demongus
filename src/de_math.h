@@ -1,4 +1,18 @@
 // ---
+// Axis
+// ---
+typedef enum {
+    Axis2_X,
+    Axis2_Y,
+    Axis2_COUNT
+} Axis2;
+
+static Axis2 Axis2_Other(Axis2 axis)
+{
+    return (axis == Axis2_X ? Axis2_Y : Axis2_X);
+}
+
+// ---
 // Scalar math
 // ---
 #define Min(a, b) ((a) < (b) ? (a) : (b))
@@ -19,11 +33,25 @@ static float SignF(float a)
 }
 static float SinF(float turns)
 {
-    return SDL_sinf(turns);
+    // @todo custom sincos that with turn input
+    return SDL_sinf(turns*2.f*SDL_PI_F);
 }
 static float CosF(float turns)
 {
-    return SDL_cosf(turns);
+    // @todo custom sincos that with turn input
+    return SDL_cosf(turns*2.f*SDL_PI_F);
+}
+
+typedef struct
+{
+    float sin, cos;
+} SinCosResult;
+static SinCosResult SinCosF(float turns)
+{
+    // @note most common sin/cos algorithms can provide both sin and cos
+    //       "almost for free" - we just need to copypaste some good one here
+    // @todo custom sincos that works with turn input
+    return (SinCosResult){SinF(turns), CosF(turns)};
 }
 
 static float CeilF(float a)
@@ -123,20 +151,16 @@ static V2 V2_Rotate90(V2 a)
 
     return (V2){x_prim, y_prim};
 }
+static V2 V2_RotateSinCos(V2 a, SinCosResult sincos)
+{
+    float x_prim = V2_Inner((V2){sincos.cos, -sincos.sin}, a);
+    float y_prim = V2_Inner((V2){sincos.sin, sincos.cos}, a);
+    return (V2){x_prim, y_prim};
+}
 static V2 V2_Rotate(V2 a, float rot)
 {
-    // Ideally we would have custom made sin/cos that work with turns
-    // turns -> * pi -> radians
-    float sin = SinF(rot * 2.f*SDL_PI_F);
-    float cos = CosF(rot * 2.f*SDL_PI_F);
-
-    // rotation matrix
-    // [ cos(rot2pi) -sin(rot2pi) ] [ x ]
-    // [ sin(rot2pi)  cos(rot2pi) ] [ y ]
-    float x_prim = V2_Inner((V2){cos, -sin}, a);
-    float y_prim = V2_Inner((V2){sin,  cos}, a);
-
-    return (V2){x_prim, y_prim};
+    SinCosResult sincos = SinCosF(rot);
+    return V2_RotateSinCos(a, sincos);
 }
 static V2 V2_CalculateNormal(V2 a, V2 b)
 {
@@ -148,26 +172,38 @@ static V2 V2_CalculateNormal(V2 a, V2 b)
     return V2_Rotate90(dir);
 }
 
-// ---
-// Range
-// ---
-typedef struct
+static void V2_VerticesTransform(V2 *verts, Uint64 vert_count,
+                                 float rotation, V2 offset)
 {
-    float min, max;
+    SinCosResult sincos = SinCosF(rotation);
+    ForU64(i, vert_count)
+    {
+        V2 rotated = V2_RotateSinCos(verts[i], sincos);
+        V2 moved = V2_Add(rotated, offset);
+        verts[i] = moved;
+    }
+}
+
+// ---
+// Ranges
+// ---
+typedef union
+{
+    struct { float min, max; };
+    float E[2];
 } RngF; // Range float
+
+typedef union
+{
+    struct { V2 min, max; };
+    V2 E[2];
+} RngV2;
 
 static float RngF_MaxDistance(RngF a, RngF b)
 {
     float d0 = b.min - a.max;
     float d1 = a.min - b.max;
     return Max(d0, d1);
-}
-
-static float signum(float a) // @todo delete? same as SignF
-{
-    if (a < 0)
-        return -1;
-    return 1;
 }
 
 static Uint64 HashU64(Uint64 seed, void *data, Uint64 size)
@@ -248,3 +284,5 @@ static SDL_FPoint V2_To_SDL_FPoint(V2 v)
 {
     return (SDL_FPoint){v.x, v.y};
 }
+
+

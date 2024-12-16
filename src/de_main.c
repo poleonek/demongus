@@ -55,15 +55,29 @@ static void Game_IssueDrawCommands(AppState *app)
         ForU32(object_index, app->object_count)
         {
             Object *obj = app->object_pool + object_index;
-
-            if (obj->dirty_sprite_vertices)
-            {
-                Object_CalculateVerticesAndNormals(obj, true);
-            }
+            Sprite *sprite = Sprite_Get(app, obj->sprite_id);
 
             V2 verts[4];
-            static_assert(sizeof(verts) == sizeof(obj->sprite_vertices.arr));
-            memcpy(verts, obj->sprite_vertices.arr, sizeof(obj->sprite_vertices.arr));
+            if (sprite->tex)
+            {
+                obj->sprite_rotation = 0.f;
+
+                V2 tex_half_dim = {(float)sprite->tex->w, (float)sprite->tex->h};
+                tex_half_dim = V2_Scale(tex_half_dim, obj->sprite_scale*0.5f * ScaleMetersPerPixel);
+
+                verts[0] = (V2){-tex_half_dim.x, -tex_half_dim.y};
+                verts[1] = (V2){ tex_half_dim.x, -tex_half_dim.y};
+                verts[2] = (V2){-tex_half_dim.x,  tex_half_dim.y};
+                verts[3] = (V2){ tex_half_dim.x,  tex_half_dim.y};
+
+                V2_VerticesTransform(verts, ArrayCount(verts), obj->sprite_rotation, obj->p);
+            }
+            else
+            {
+                static_assert(sizeof(verts) <= sizeof(obj->collision_vertices.arr));
+                memcpy(verts, obj->collision_vertices.arr, Min(sizeof(verts), sizeof(obj->collision_vertices.arr)));
+            }
+
             Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->color);
@@ -77,7 +91,6 @@ static void Game_IssueDrawCommands(AppState *app)
                 sdl_verts[i].color = fcolor;
             }
 
-            Sprite *sprite = Sprite_Get(app, obj->sprite_id);
             {
                 float tex_y0 = 0.f;
                 float tex_y1 = 1.f;
@@ -88,13 +101,13 @@ static void Game_IssueDrawCommands(AppState *app)
                     tex_y0 = frame_index * tex_height;
                     tex_y1 = tex_y0 + tex_height;
                 }
-                sdl_verts[0].tex_coord = (SDL_FPoint){1, tex_y1};
-                sdl_verts[1].tex_coord = (SDL_FPoint){0, tex_y1};
+                sdl_verts[0].tex_coord = (SDL_FPoint){0, tex_y1};
+                sdl_verts[1].tex_coord = (SDL_FPoint){1, tex_y1};
                 sdl_verts[2].tex_coord = (SDL_FPoint){0, tex_y0};
                 sdl_verts[3].tex_coord = (SDL_FPoint){1, tex_y0};
             }
 
-            int indices[] = { 0, 1, 2, 0, 3, 2 };
+            int indices[] = { 0, 1, 2, 1, 3, 2 };
             SDL_RenderGeometry(app->renderer, sprite->tex,
                                sdl_verts, ArrayCount(sdl_verts),
                                indices, ArrayCount(indices));

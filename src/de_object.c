@@ -12,7 +12,9 @@ static bool Object_IsZero(AppState *app, Object *obj)
 
 static Object *Object_Network(AppState *app, Uint32 network_slot)
 {
-    Assert(network_slot < ArrayCount(app->network_ids));
+    if (network_slot >= ArrayCount(app->network_ids))
+        return Object_Get(app, 0);
+
     Uint32 id = app->network_ids[network_slot];
     return Object_Get(app, id);
 }
@@ -80,11 +82,11 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
 typedef struct
 {
     RngF arr[4];
-} CollisionProjectionResult;
+} Object_Projection;
 
-static CollisionProjectionResult Object_CollisionProjection(Normals obj_normals, Vertices obj_verts)
+static Object_Projection Object_CollisionProjection(Object_Normals obj_normals, Object_Vertices obj_verts)
 {
-    CollisionProjectionResult result = {0};
+    Object_Projection result = {0};
     static_assert(ArrayCount(result.arr) == ArrayCount(obj_normals.arr));
 
     ForArray(normal_index, obj_normals.arr)
@@ -131,37 +133,10 @@ static V2 Object_GetDrawDim(AppState *app, Object *obj)
     }
 }
 
-static void Object_CalculateVerticesAndNormals(Object *obj, bool update_sprite)
+static Object_Vertices Object_TransformVertices(Object_Vertices verts, float rotation, V2 offset)
 {
-    float rotation = (update_sprite ? obj->sprite_rotation : obj->collision_rotation);
-
-    {
-        static_assert(sizeof(obj->sprite_vertices.arr) == sizeof(obj->collision_vertices.arr));
-        V2 *verts = (update_sprite ? obj->sprite_vertices.arr : obj->collision_vertices.arr);
-        size_t vert_count = ArrayCount(obj->collision_vertices.arr);
-
-        ForU32(i, vert_count)
-        {
-            V2 vertRel = obj->vertices_relative_to_p.arr[i];
-            V2 rotated = V2_Rotate(vertRel, rotation);
-            V2 moved = V2_Add(rotated, obj->p);
-            verts[i].x = moved.x;
-            verts[i].y = moved.y;
-        }
-    }
-
-    if (!update_sprite)
-    {
-        Uint32 vert_count = ArrayCount(obj->collision_vertices.arr);
-        V2* verts = obj->collision_vertices.arr;
-
-        // calculate last normal
-        obj->collision_normals.arr[vert_count - 1] = V2_CalculateNormal(verts[vert_count - 1], verts[0]);
-        ForU32(vert_id, vert_count - 1) // calculate the rest
-        {
-            obj->collision_normals.arr[vert_id] = V2_CalculateNormal(verts[vert_id], verts[vert_id + 1]);
-        }
-    }
+    V2_VerticesTransform(verts.arr, ArrayCount(verts.arr), rotation, offset);
+    return verts;
 }
 
 static void Object_UpdateCollisionVerticesAndNormals(Object *obj)
@@ -169,6 +144,19 @@ static void Object_UpdateCollisionVerticesAndNormals(Object *obj)
     // @todo This function should be called automatically?
     //       We should add some asserts and checks to make sure
     //       that we aren't using stale vertices & normals
-    obj->dirty_sprite_vertices = true;
-    Object_CalculateVerticesAndNormals(obj, false);
+
+    obj->collision_vertices = Object_TransformVertices(obj->vertices_relative_to_p, obj->collision_rotation, obj->p);
+
+    // calculate normals
+    Uint64 vert_count = ArrayCount(obj->collision_vertices.arr);
+    ForU64(vert_id, vert_count)
+    {
+        Uint64 next_vert_id = vert_id + 1;
+        if (next_vert_id >= vert_count)
+            next_vert_id -= vert_count;
+
+        obj->collision_normals.arr[vert_id]
+            = V2_CalculateNormal(obj->collision_vertices.arr[vert_id],
+                                 obj->collision_vertices.arr[next_vert_id]);
+    }
 }

@@ -90,8 +90,8 @@ static void Tick_Iterate(AppState *app)
                 {
                     Object *normal_obj;
                     Object *projected_obstacle;
-                    CollisionProjectionResult a;
-                    CollisionProjectionResult b;
+                    Object_Projection a;
+                    Object_Projection b;
                     if (sat_iteration == 0)
                     {
                         normal_obj = obj;
@@ -194,8 +194,8 @@ static void Tick_Iterate(AppState *app)
         bool in_idle_frame = (0 == frame_index_map[obj->sprite_animation_index]);
 
         float distance = V2_Length(V2_Sub(obj->p, obj->prev_p));
-        float anim_speed = (16.f * TIME_STEP);
-        anim_speed += (3200.f * distance * TIME_STEP);
+        float anim_speed = (18.f * TIME_STEP);
+        anim_speed += (400.f * distance * TIME_STEP);
 
         if (!distance && in_idle_frame)
         {
