@@ -280,7 +280,7 @@ static void Net_Iterate(AppState *app)
     // hacky temporary network activity rate-limitting
     {
         static Uint64 last_timestamp = 0;
-        if (app->frame_time < last_timestamp + 1)
+        if (app->frame_time < last_timestamp + 1000)
             return;
 
         last_timestamp = app->frame_time;

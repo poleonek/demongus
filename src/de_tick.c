@@ -1,5 +1,5 @@
 //
-// Physic tick update
+// Physics update tick
 // @todo this should run on a separate thread
 //
 static Tick_Input *Tick_PollInput(AppState *app)
