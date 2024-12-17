@@ -216,7 +216,7 @@ static void Game_Iterate(AppState *app)
         }
     }
 
-    Net_Iterate(app);
+    Net_IterateReceive(app);
 
     if (app->debug.single_tick_stepping)
     {
@@ -235,6 +235,14 @@ static void Game_Iterate(AppState *app)
             app->tick_dt_accumulator -= TIME_STEP;
             Tick_Iterate(app);
         }
+    }
+
+    Net_IterateSend(app);
+
+    // move camera
+    {
+        Object *player = Object_Network(app, app->player_network_slot);
+        app->camera_p = player->p;
     }
 
     Game_IssueDrawCommands(app);
@@ -262,6 +270,7 @@ static void Game_Init(AppState *app)
     app->object_count += 1; // reserve object under index 0 as special 'nil' value
     app->sprite_count += 1; // reserve sprite under index 0 as special 'nil' value
     app->camera_range = 500;
+    app->tick_id = NET_MAX_TICK_HISTORY;
 
     // this assumes we run the game from build directory
     // @todo in the future we should force CWD or query demongus absolute path etc

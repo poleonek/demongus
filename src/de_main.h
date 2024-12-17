@@ -1,11 +1,14 @@
 // ---
 // Constants
 // ---
-#define TIME_STEP (1.f / 128.f)
+#define TICK_RATE 16
+#define TIME_STEP (1.f / (float)TICK_RATE)
 
 #define NET_DEFAULT_SEVER_PORT 21037
 #define NET_MAGIC_VALUE 0xfda0'dead'beef'1234llu
-#define NET_MAX_TICK_HISTORY 4096
+#define NET_MAX_TICK_HISTORY (TICK_RATE * 2)
+#define NET_MAX_NETWORK_OBJECTS 16
+#define NET_OLD_PROTOCOL 0
 
 typedef struct
 {
@@ -51,13 +54,13 @@ typedef enum
     Tick_Cmd_None,
     Tick_Cmd_Input,
     Tick_Cmd_NetworkObj,
+    Tick_Cmd_ObjHistory,
 } Tick_CommandKind;
 
 typedef struct
 {
     Uint64 tick_id;
     Tick_CommandKind kind;
-    Uint32 network_slot;
 } Tick_Command;
 
 typedef struct
@@ -68,8 +71,19 @@ typedef struct
 
 typedef struct
 {
-    Object object;
+    Object obj;
+    Uint32 network_slot;
 } Tick_NetworkObj;
+
+typedef struct
+{
+    Object objs[NET_MAX_NETWORK_OBJECTS];
+} Tick_NetworkObjState;
+
+typedef struct
+{
+    Tick_NetworkObjState states[NET_MAX_TICK_HISTORY];
+} Tick_NetworkObjHistory;
 
 typedef struct
 {
@@ -91,6 +105,9 @@ typedef struct
     Uint64 tick_input_min;
     Uint64 tick_input_max; // one past last
 
+    Tick_NetworkObjState netobj_states[NET_MAX_TICK_HISTORY];
+    Uint64 netobj_state_next;
+
     // time
     Uint64 frame_id;
     Uint64 frame_time;
@@ -101,7 +118,7 @@ typedef struct
     // objects
     Object object_pool[4096];
     Uint32 object_count;
-    Uint32 network_ids[16];
+    Uint32 network_ids[NET_MAX_NETWORK_OBJECTS];
     Uint32 player_network_slot;
 
     // sprites

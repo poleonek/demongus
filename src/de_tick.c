@@ -26,7 +26,7 @@ static Tick_Input *Tick_PollInput(AppState *app)
     return input;
 }
 
-static void Tick_Iterate(AppState *app)
+static void Tick_AdvanceSimulation(AppState *app)
 {
     Tick_Input *input = Tick_PollInput(app);
 
@@ -201,9 +201,30 @@ static void Tick_Iterate(AppState *app)
         obj->sprite_frame_index = frame_index_map[obj->sprite_animation_index];
     }
 
-    // move camera
+
+    // save networked objects state
     {
-        Object *player = Object_Network(app, app->player_network_slot);
-        app->camera_p = player->p;
+        Tick_NetworkObjState *state = app->netobj_states + app->netobj_state_next;
+        app->netobj_state_next = (app->netobj_state_next + 1) % ArrayCount(app->netobj_states);
+
+        static_assert(ArrayCount(state->objs) == ArrayCount(app->network_ids));
+        ForArray(i, state->objs)
+        {
+            Object *dst = state->objs + i;
+            Object *src = Object_Network(app, i);
+            memcpy(dst, src, sizeof(Object));
+        }
+    }
+}
+
+static void Tick_Iterate(AppState *app)
+{
+    if (app->net.is_server)
+    {
+        Tick_AdvanceSimulation(app);
+    }
+    else
+    {
+        //Tick_PlaybackSimulation(app); // @todo
     }
 }

@@ -1,8 +1,8 @@
 //
 // disable log spam
 //
-#define NET_VERBOSE_LOG(...)
-//#define NET_VERBOSE_LOG(...) SDL_Log(__VA_ARG__)
+//#define NET_VERBOSE_LOG(...)
+#define NET_VERBOSE_LOG(...) SDL_Log(__VA_ARGS__)
 
 typedef struct
 {
@@ -121,10 +121,19 @@ static Net_User *Net_AddUser(AppState *app, SDLNet_Address *address, Uint16 port
     return 0;
 }
 
-static void Net_SendData(AppState *app)
+static void Net_IterateSend(AppState *app)
 {
     bool is_server = app->net.is_server;
     bool is_client = !app->net.is_server;
+    if (app->net.err) return;
+
+    {
+        // hacky temporary network activity rate-limitting
+        static Uint64 last_timestamp = 0;
+        if (app->frame_time < last_timestamp + 1000)
+            return;
+        last_timestamp = app->frame_time;
+    }
 
     Net_BufHeader header = {};
     header.magic_value = NET_MAGIC_VALUE;
@@ -132,19 +141,44 @@ static void Net_SendData(AppState *app)
 
     if (is_server)
     {
-        ForArray(i, app->network_ids)
+        if (NET_OLD_PROTOCOL)
         {
-            Object *obj = Object_Network(app, i);
-            if (Object_IsZero(app, obj))
-                continue;
+            ForArray(i, app->network_ids)
+            {
+                Object *obj = Object_Network(app, i);
+                if (Object_IsZero(app, obj))
+                    continue;
 
+                Tick_Command cmd = {};
+                cmd.tick_id = app->tick_id;
+                cmd.kind = Tick_Cmd_NetworkObj;
+                Net_BufMemcpy(app, &cmd, sizeof(cmd));
+
+                Net_BufMemcpy(app, obj, sizeof(*obj));
+
+                Uint32 i_32 = i;
+                Net_BufMemcpy(app, &i_32, sizeof(i_32));
+            }
+        }
+        else
+        {
             Tick_Command cmd = {};
             cmd.tick_id = app->tick_id;
-            cmd.kind = Tick_Cmd_NetworkObj;
-            cmd.network_slot = i;
+            cmd.kind = Tick_Cmd_ObjHistory;
             Net_BufMemcpy(app, &cmd, sizeof(cmd));
 
-            Net_BufMemcpy(app, obj, sizeof(*obj));
+            if (app->netobj_state_next + 1 < ArrayCount(app->netobj_states)) // copy range (next..Max)
+            {
+                Uint64 start = app->netobj_state_next + 1;
+                Uint64 states_to_copy = ArrayCount(app->netobj_states) - start;
+                Net_BufMemcpy(app, app->netobj_states + start, states_to_copy*sizeof(Tick_NetworkObjState));
+            }
+
+            if (app->netobj_state_next > 0) // copy range [0..next)
+            {
+                Uint64 states_to_copy = app->netobj_state_next - 1;
+                Net_BufMemcpy(app, app->netobj_states, states_to_copy*sizeof(Tick_NetworkObjState));
+            }
         }
     }
 
@@ -160,10 +194,19 @@ static void Net_SendData(AppState *app)
     Net_BufSendFlush(app);
 }
 
-static void Net_ReceiveData(AppState *app)
+static void Net_IterateReceive(AppState *app)
 {
     bool is_server = app->net.is_server;
     bool is_client = !app->net.is_server;
+    if (app->net.err) return;
+
+    {
+        // hacky temporary network activity rate-limitting
+        static Uint64 last_timestamp = 0;
+        if (app->frame_time < last_timestamp + 1000)
+            return;
+        last_timestamp = app->frame_time;
+    }
 
     for (;;)
     {
@@ -232,38 +275,45 @@ static void Net_ReceiveData(AppState *app)
 
         if (is_client)
         {
-            if (msg.size)
+            while (msg.size)
             {
                 Tick_Command cmd;
                 Net_ConsumeMsg(&msg, &cmd, sizeof(cmd));
-
-                if (cmd.network_slot >= ArrayCount(app->network_ids))
-                {
-                    SDL_Log("%s: Network slot overflow: %d",
-                            Net_Label(app), (int)cmd.network_slot);
-                    goto datagram_cleanup;
-                }
-
-                if (cmd.kind != Tick_Cmd_NetworkObj)
-                {
-                    SDL_Log("%s: Unsupported cmd kind: %d",
-                            Net_Label(app), (int)cmd.kind);
-                    goto datagram_cleanup;
-                }
 
                 if (cmd.kind == Tick_Cmd_NetworkObj)
                 {
                     Tick_NetworkObj msg_obj;
                     Net_ConsumeMsg(&msg, &msg_obj, sizeof(msg_obj));
 
-                    if (!app->network_ids[cmd.network_slot])
+                    if (msg_obj.network_slot >= ArrayCount(app->network_ids))
                     {
-                        app->network_ids[cmd.network_slot] =
+                        SDL_Log("%s: Network slot overflow: %d",
+                                Net_Label(app), (int)msg_obj.network_slot);
+                        goto datagram_cleanup;
+                    }
+
+                    if (!app->network_ids[msg_obj.network_slot])
+                    {
+                        app->network_ids[msg_obj.network_slot] =
                             Object_IdFromPointer(app, Object_Create(app, 0, 0));
                     }
 
-                    Object *obj = Object_Network(app, cmd.network_slot);
-                    *obj = msg_obj.object;
+                    Object *obj = Object_Network(app, msg_obj.network_slot);
+                    *obj = msg_obj.obj;
+                }
+                else if (cmd.kind == Tick_Cmd_ObjHistory)
+                {
+                    Tick_NetworkObjHistory history;
+                    Net_ConsumeMsg(&msg, &history, sizeof(history));
+
+                    // @todo handle
+                    Assert(false);
+                }
+                else
+                {
+                    SDL_Log("%s: Unsupported cmd kind: %d",
+                            Net_Label(app), (int)cmd.kind);
+                    goto datagram_cleanup;
                 }
             }
         }
@@ -271,23 +321,6 @@ static void Net_ReceiveData(AppState *app)
         datagram_cleanup:
         SDLNet_DestroyDatagram(dgram);
     }
-}
-
-static void Net_Iterate(AppState *app)
-{
-    if (app->net.err) return;
-
-    // hacky temporary network activity rate-limitting
-    {
-        static Uint64 last_timestamp = 0;
-        if (app->frame_time < last_timestamp + 1000)
-            return;
-
-        last_timestamp = app->frame_time;
-    }
-
-    Net_ReceiveData(app);
-    Net_SendData(app);
 }
 
 static void Net_Init(AppState *app)
