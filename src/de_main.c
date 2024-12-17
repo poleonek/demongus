@@ -61,12 +61,13 @@ static void Game_IssueDrawCommands(AppState *app)
             if (sprite->tex)
             {
                 V2 tex_half_dim = {(float)sprite->tex->w, (float)sprite->tex->h};
+                tex_half_dim.y /= (float)sprite->tex_frames;
                 tex_half_dim = V2_Scale(tex_half_dim, 0.5f);
 
                 verts[0] = (V2){-tex_half_dim.x, -tex_half_dim.y};
                 verts[1] = (V2){ tex_half_dim.x, -tex_half_dim.y};
-                verts[2] = (V2){-tex_half_dim.x,  tex_half_dim.y};
-                verts[3] = (V2){ tex_half_dim.x,  tex_half_dim.y};
+                verts[2] = (V2){ tex_half_dim.x,  tex_half_dim.y};
+                verts[3] = (V2){-tex_half_dim.x,  tex_half_dim.y};
             }
             else
             {
@@ -100,11 +101,11 @@ static void Game_IssueDrawCommands(AppState *app)
                 }
                 sdl_verts[0].tex_coord = (SDL_FPoint){0, tex_y1};
                 sdl_verts[1].tex_coord = (SDL_FPoint){1, tex_y1};
-                sdl_verts[2].tex_coord = (SDL_FPoint){0, tex_y0};
-                sdl_verts[3].tex_coord = (SDL_FPoint){1, tex_y0};
+                sdl_verts[2].tex_coord = (SDL_FPoint){1, tex_y0};
+                sdl_verts[3].tex_coord = (SDL_FPoint){0, tex_y0};
             }
 
-            int indices[] = { 0, 1, 2, 1, 3, 2 };
+            int indices[] = { 0, 1, 3, 1, 2, 3 };
             SDL_RenderGeometry(app->renderer, sprite->tex,
                                sdl_verts, ArrayCount(sdl_verts),
                                indices, ArrayCount(indices));
@@ -156,11 +157,11 @@ static void Game_IssueDrawCommands(AppState *app)
                     }
                     sdl_verts[0].tex_coord = (SDL_FPoint){0, tex_y1};
                     sdl_verts[1].tex_coord = (SDL_FPoint){1, tex_y1};
-                    sdl_verts[2].tex_coord = (SDL_FPoint){0, tex_y0};
-                    sdl_verts[3].tex_coord = (SDL_FPoint){1, tex_y0};
+                    sdl_verts[2].tex_coord = (SDL_FPoint){1, tex_y0};
+                    sdl_verts[3].tex_coord = (SDL_FPoint){0, tex_y0};
                 }
 
-                int indices[] = { 0, 1, 2, 1, 3, 2 };
+                int indices[] = { 0, 1, 3, 1, 2, 3 };
                 SDL_RenderGeometry(app->renderer, overlay_sprite->tex,
                                    sdl_verts, ArrayCount(sdl_verts),
                                    indices, ArrayCount(indices));
@@ -217,8 +218,16 @@ static void Game_Iterate(AppState *app)
 
     Net_Iterate(app);
 
-    bool run_simulation = (!app->debug.pause_on_every_frame || !app->debug.paused_frame);
-    if (run_simulation)
+    if (app->debug.single_tick_stepping)
+    {
+        if (app->debug.unpause_one_tick)
+        {
+            app->tick_id += 1;
+            Tick_Iterate(app);
+            app->debug.unpause_one_tick = false;
+        }
+    }
+    else
     {
         while (app->tick_dt_accumulator > TIME_STEP)
         {
@@ -227,6 +236,7 @@ static void Game_Iterate(AppState *app)
             Tick_Iterate(app);
         }
     }
+
     Game_IssueDrawCommands(app);
 }
 
@@ -242,7 +252,7 @@ static void Game_Init(AppState *app)
     // init debug options
     {
         //app->debug.fixed_dt = 0.1f;
-        //app->debug.pause_on_every_frame = true;
+        //app->debug.single_tick_stepping = true;
         app->debug.draw_collision_box = true;
     }
 
@@ -251,7 +261,7 @@ static void Game_Init(AppState *app)
     app->frame_time = SDL_GetTicks();
     app->object_count += 1; // reserve object under index 0 as special 'nil' value
     app->sprite_count += 1; // reserve sprite under index 0 as special 'nil' value
-    app->camera_range = 800;
+    app->camera_range = 400;
 
     // this assumes we run the game from build directory
     // @todo in the future we should force CWD or query demongus absolute path etc
@@ -268,6 +278,7 @@ static void Game_Init(AppState *app)
         float length = 400.f;
         float off = length*0.5f - thickness*0.5f;
         Object_Wall(app, (V2){off, 0}, (V2){thickness, length});
+#if 1
         Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
         Object_Wall(app, (V2){0, off}, (V2){length, thickness});
         Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
@@ -284,6 +295,7 @@ static void Game_Init(AppState *app)
             crate->p = (V2){off, 2*off};
             (void)crate;
         }
+#endif
     }
 
 

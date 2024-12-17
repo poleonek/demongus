@@ -48,8 +48,8 @@ static Object *Object_Wall(AppState *app, V2 p, V2 dim)
     Col_Vertices collision_verts = {0};
     collision_verts.arr[0] = (V2){-half_dim.x, -half_dim.y};
     collision_verts.arr[1] = (V2){ half_dim.x, -half_dim.y};
-    collision_verts.arr[2] = (V2){-half_dim.x,  half_dim.y};
-    collision_verts.arr[3] = (V2){ half_dim.x,  half_dim.y};
+    collision_verts.arr[2] = (V2){ half_dim.x,  half_dim.y};
+    collision_verts.arr[3] = (V2){-half_dim.x,  half_dim.y};
 
     Sprite *sprite = Sprite_CreateNoTex(app, collision_verts);
     Object *obj = Object_Create(app, Sprite_IdFromPointer(app, sprite),
@@ -72,25 +72,24 @@ typedef struct
     RngF arr[4];
 } Col_Projection;
 
-static Col_Projection CollisionProjection(Col_Normals obj_normals, Col_Vertices obj_verts)
+static Col_Projection CollisionProjection(Col_Normals normals, Col_Vertices verts)
 {
     Col_Projection result = {0};
-    static_assert(ArrayCount(result.arr) == ArrayCount(obj_normals.arr));
 
-    ForArray(normal_index, obj_normals.arr)
+    static_assert(ArrayCount(result.arr) == ArrayCount(normals.arr));
+    ForArray(normal_index, normals.arr)
     {
-        RngF *sat = result.arr + normal_index;
-        sat->min = FLT_MAX;
-        sat->max = -FLT_MAX;
-        V2 normal = obj_normals.arr[normal_index];
+        RngF *projection = result.arr + normal_index;
+        projection->min = FLT_MAX;
+        projection->max = -FLT_MAX;
 
-        ForArray(vert_index, obj_verts.arr)
+        V2 normal = normals.arr[normal_index];
+        ForArray(vert_index, verts.arr)
         {
-            V2 vert = obj_verts.arr[vert_index];
-
+            V2 vert = verts.arr[vert_index];
             float inner = V2_Inner(normal, vert);
-            sat->min = Min(inner, sat->min);
-            sat->max = Max(inner, sat->max);
+            projection->min = Min(inner, projection->min);
+            projection->max = Max(inner, projection->max);
         }
     }
 

@@ -45,8 +45,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     Game_Iterate(app);
     SDL_RenderPresent(app->renderer);
 
-    app->debug.paused_frame = true;
-
     return SDL_APP_CONTINUE;
 }
 
@@ -78,7 +76,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
             if (event->type == SDL_EVENT_KEY_DOWN &&
                 event->key.key == SDLK_P)
             {
-                app->debug.paused_frame = false;
+                app->debug.unpause_one_tick = true;
             }
         } break;
 

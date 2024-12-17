@@ -57,26 +57,26 @@ static void Tick_Iterate(AppState *app)
     {
         Object *obj = app->object_pool + obj_id;
         if (!(obj->flags & ObjectFlag_Move)) continue;
+        Sprite *obj_sprite = Sprite_Get(app, obj->sprite_id);
 
         obj->p = V2_Add(obj->p, obj->dp);
-
-        Sprite *obj_sprite = Sprite_Get(app, obj->sprite_id);
-        Col_Vertices obj_verts = obj_sprite->collision_vertices;
-        V2_VerticesOffset(obj_verts.arr, ArrayCount(obj_verts.arr), obj->p);
-        V2 obj_center = V2_VerticesAverage(obj_verts.arr, ArrayCount(obj_verts.arr));
 
         ForU32(collision_iteration, 8) // support up to 8 overlapping wall collisions
         {
             float closest_obstacle_separation_dist = FLT_MAX;
             V2 closest_obstacle_wall_normal = {0};
 
+            Col_Vertices obj_verts = obj_sprite->collision_vertices;
+            V2_VerticesOffset(obj_verts.arr, ArrayCount(obj_verts.arr), obj->p);
+            V2 obj_center = V2_VerticesAverage(obj_verts.arr, ArrayCount(obj_verts.arr));
+
             ForU32(obstacle_id, app->object_count)
             {
                 Object *obstacle = app->object_pool + obstacle_id;
                 if (!(obstacle->flags & ObjectFlag_Collide)) continue;
                 if (obj == obstacle) continue;
-
                 Sprite *obstacle_sprite = Sprite_Get(app, obstacle->sprite_id);
+
                 Col_Vertices obstacle_verts = obstacle_sprite->collision_vertices;
                 V2_VerticesOffset(obstacle_verts.arr, ArrayCount(obstacle_verts.arr), obstacle->p);
                 V2 obstacle_center = V2_VerticesAverage(obstacle_verts.arr, ArrayCount(obstacle_verts.arr));
@@ -90,11 +90,11 @@ static void Tick_Iterate(AppState *app)
                 ForU32(sat_iteration, 2)
                 {
                     Col_Normals normals = (sat_iteration ?
-                                              obj_sprite->collision_normals :
-                                              obstacle_sprite->collision_normals);
+                                           obj_sprite->collision_normals :
+                                           obstacle_sprite->collision_normals);
 
-                    Col_Projection a = CollisionProjection(normals, obstacle_verts);
-                    Col_Projection b = CollisionProjection(normals, obj_verts);
+                    Col_Projection a = CollisionProjection(normals, obj_verts);
+                    Col_Projection b = CollisionProjection(normals, obstacle_verts);
 
                     ForArray(i, a.arr)
                     {
@@ -178,8 +178,8 @@ static void Tick_Iterate(AppState *app)
         bool in_idle_frame = (0 == frame_index_map[obj->sprite_animation_index]);
 
         float distance = V2_Length(V2_Sub(obj->p, obj->prev_p));
-        float anim_speed = (18.f * TIME_STEP);
-        anim_speed += (400.f * distance * TIME_STEP);
+        float anim_speed = (16.f * TIME_STEP);
+        anim_speed += (5.f * distance * TIME_STEP);
 
         if (!distance && in_idle_frame)
         {

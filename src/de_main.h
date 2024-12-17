@@ -143,8 +143,8 @@ typedef struct
     struct
     {
         float fixed_dt;
-        bool pause_on_every_frame;
-        bool paused_frame;
+        bool single_tick_stepping;
+        bool unpause_one_tick;
 
         bool draw_collision_box;
         float collision_sprite_animation_t;
