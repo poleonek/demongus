@@ -15,14 +15,8 @@ static Sprite *Sprite_Get(AppState *app, Uint32 sprite_id)
     return app->sprite_pool + sprite_id;
 }
 
-static Sprite *Sprite_CreateNoTex(AppState *app, Col_Vertices collision_vertices)
+static void Sprite_RecalculateCollsionNormals(Sprite *sprite)
 {
-    Assert(app->sprite_count < ArrayCount(app->sprite_pool));
-    Sprite *sprite = app->sprite_pool + app->sprite_count;
-    app->sprite_count += 1;
-
-    sprite->collision_vertices = collision_vertices;
-
     Uint64 vert_count = ArrayCount(sprite->collision_vertices.arr);
     ForU64(vert_id, vert_count)
     {
@@ -34,7 +28,21 @@ static Sprite *Sprite_CreateNoTex(AppState *app, Col_Vertices collision_vertices
             = V2_CalculateNormal(sprite->collision_vertices.arr[vert_id],
                                  sprite->collision_vertices.arr[next_vert_id]);
     }
+}
 
+static void Sprite_UpdateCollisionVertices(Sprite *sprite, Col_Vertices collision_vertices)
+{
+    sprite->collision_vertices = collision_vertices;
+    Sprite_RecalculateCollsionNormals(sprite);
+}
+
+static Sprite *Sprite_CreateNoTex(AppState *app, Col_Vertices collision_vertices)
+{
+    Assert(app->sprite_count < ArrayCount(app->sprite_pool));
+    Sprite *sprite = app->sprite_pool + app->sprite_count;
+    app->sprite_count += 1;
+
+    Sprite_UpdateCollisionVertices(sprite, collision_vertices);
     return sprite;
 }
 

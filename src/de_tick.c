@@ -42,7 +42,7 @@ static void Tick_Iterate(AppState *app)
         Object *player = Object_Network(app, app->player_network_slot);
         if (!Object_IsZero(app, player))
         {
-            float player_speed = 200.f * TIME_STEP;
+            float player_speed = 200.f * TIME_STEP * 9.f;
             player->dp = V2_Scale(input->move_dir, player_speed);
         }
     }
@@ -89,16 +89,17 @@ static void Tick_Iterate(AppState *app)
                 // and from the perspective of the obstacle.
                 ForU32(sat_iteration, 2)
                 {
-                    Col_Normals normals = (sat_iteration ?
+                    bool use_obj_normals = !sat_iteration;
+                    Col_Normals normals = (use_obj_normals ?
                                            obj_sprite->collision_normals :
                                            obstacle_sprite->collision_normals);
 
-                    Col_Projection a = CollisionProjection(normals, obj_verts);
-                    Col_Projection b = CollisionProjection(normals, obstacle_verts);
+                    Col_Projection proj_obj = CollisionProjection(normals, obj_verts);
+                    Col_Projection proj_obstacle = CollisionProjection(normals, obstacle_verts);
 
-                    ForArray(i, a.arr)
+                    ForArray(i, proj_obj.arr)
                     {
-                        static_assert(ArrayCount(a.arr) == ArrayCount(normals.arr));
+                        static_assert(ArrayCount(proj_obj.arr) == ArrayCount(normals.arr));
                         V2 normal = normals.arr[i];
 
                         V2 obstacle_dir = V2_Sub(obstacle_center, obj_center);
@@ -107,7 +108,7 @@ static void Tick_Iterate(AppState *app)
                             continue;
                         }
 
-                        float d = RngF_MaxDistance(a.arr[i], b.arr[i]);
+                        float d = RngF_MaxDistance(proj_obj.arr[i], proj_obstacle.arr[i]);
                         if (d > 0.f)
                         {
                             // @info(mg) We can exit early from checking this
@@ -120,9 +121,10 @@ static void Tick_Iterate(AppState *app)
                         {
                             biggest_dist = d;
 
-                            wall_normal = normal;
-                            if (!sat_iteration)
+                            if (use_obj_normals || true) // @todo(mg) I have a bug somewhere? Why does `|| true` fix my bug?
                             {
+                                // @note if we pick obj's normal we need to
+                                // inverse it if we want to move out of the obstacle
                                 wall_normal = V2_Reverse(wall_normal);
                             }
                         }

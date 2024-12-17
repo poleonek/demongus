@@ -252,7 +252,7 @@ static void Game_Init(AppState *app)
     // init debug options
     {
         //app->debug.fixed_dt = 0.1f;
-        //app->debug.single_tick_stepping = true;
+        app->debug.single_tick_stepping = true;
         app->debug.draw_collision_box = true;
     }
 
@@ -261,7 +261,7 @@ static void Game_Init(AppState *app)
     app->frame_time = SDL_GetTicks();
     app->object_count += 1; // reserve object under index 0 as special 'nil' value
     app->sprite_count += 1; // reserve sprite under index 0 as special 'nil' value
-    app->camera_range = 400;
+    app->camera_range = 500;
 
     // this assumes we run the game from build directory
     // @todo in the future we should force CWD or query demongus absolute path etc
@@ -269,6 +269,13 @@ static void Game_Init(AppState *app)
     app->sprite_overlay_id = Sprite_IdFromPointer(app, sprite_overlay);
 
     Sprite *sprite_crate = Sprite_Create(app, "../res/pxart/crate.png", 1);
+    {
+        V2_VerticesTransform(sprite_crate->collision_vertices.arr,
+                             ArrayCount(sprite_crate->collision_vertices.arr),
+                             0.125f, (V2){0});
+        Sprite_RecalculateCollsionNormals(sprite_crate);
+    }
+
     app->sprite_dude_id = Sprite_IdFromPointer(app, Sprite_Create(app, "../res/pxart/dude_walk.png", 5));
     Sprite *sprite_ref = Sprite_Create(app, "../res/pxart/reference.png", 1);
 
@@ -277,13 +284,14 @@ static void Game_Init(AppState *app)
         float thickness = 20.f;
         float length = 400.f;
         float off = length*0.5f - thickness*0.5f;
-        Object_Wall(app, (V2){off, 0}, (V2){thickness, length});
 #if 1
+        Object_Wall(app, (V2){off, 0}, (V2){thickness, length});
         Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
         Object_Wall(app, (V2){0, off}, (V2){length, thickness});
         Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
+#endif
 
-        {
+        if (1) {
             Object *ref = Object_Create(app, Sprite_IdFromPointer(app, sprite_ref),
                                         ObjectFlag_Draw|ObjectFlag_Collide);
             ref->p = (V2){0, off*0.5f};
@@ -292,10 +300,9 @@ static void Game_Init(AppState *app)
         {
             Object *crate = Object_Create(app, Sprite_IdFromPointer(app, sprite_crate),
                                           ObjectFlag_Draw|ObjectFlag_Collide);
-            crate->p = (V2){off, 2*off};
+            crate->p = (V2){0.5f*off, -0.5f*off};
             (void)crate;
         }
-#endif
     }
 
 
