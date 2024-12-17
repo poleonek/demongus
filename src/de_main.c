@@ -252,7 +252,7 @@ static void Game_Init(AppState *app)
     // init debug options
     {
         //app->debug.fixed_dt = 0.1f;
-        app->debug.single_tick_stepping = true;
+        //app->debug.single_tick_stepping = true;
         app->debug.draw_collision_box = true;
     }
 
@@ -284,12 +284,10 @@ static void Game_Init(AppState *app)
         float thickness = 20.f;
         float length = 400.f;
         float off = length*0.5f - thickness*0.5f;
-#if 1
         Object_Wall(app, (V2){off, 0}, (V2){thickness, length});
         Object_Wall(app, (V2){-off, 0}, (V2){thickness, length});
         Object_Wall(app, (V2){0, off}, (V2){length, thickness});
         Object_Wall(app, (V2){0,-off}, (V2){length*0.5f, thickness});
-#endif
 
         if (1) {
             Object *ref = Object_Create(app, Sprite_IdFromPointer(app, sprite_ref),

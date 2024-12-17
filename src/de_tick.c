@@ -42,7 +42,7 @@ static void Tick_Iterate(AppState *app)
         Object *player = Object_Network(app, app->player_network_slot);
         if (!Object_IsZero(app, player))
         {
-            float player_speed = 200.f * TIME_STEP * 9.f;
+            float player_speed = 200.f * TIME_STEP;
             player->dp = V2_Scale(input->move_dir, player_speed);
         }
     }
@@ -120,6 +120,7 @@ static void Tick_Iterate(AppState *app)
                         if (d > biggest_dist)
                         {
                             biggest_dist = d;
+                            wall_normal = normal;
 
                             if (use_obj_normals || true) // @todo(mg) I have a bug somewhere? Why does `|| true` fix my bug?
                             {
