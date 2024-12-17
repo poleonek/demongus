@@ -15,6 +15,7 @@
 
 #include "de_base.h"
 #include "de_math.h"
+#include "de_vertices.h"
 #include "de_string.h"
 #include "de_main.h"
 #include "de_sprite.c"

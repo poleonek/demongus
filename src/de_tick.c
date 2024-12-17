@@ -67,8 +67,8 @@ static void Tick_Iterate(AppState *app)
             V2 closest_obstacle_wall_normal = {0};
 
             Col_Vertices obj_verts = obj_sprite->collision_vertices;
-            V2_VerticesOffset(obj_verts.arr, ArrayCount(obj_verts.arr), obj->p);
-            V2 obj_center = V2_VerticesAverage(obj_verts.arr, ArrayCount(obj_verts.arr));
+            Vertices_Offset(obj_verts.arr, ArrayCount(obj_verts.arr), obj->p);
+            V2 obj_center = Vertices_Average(obj_verts.arr, ArrayCount(obj_verts.arr));
 
             ForU32(obstacle_id, app->object_count)
             {
@@ -78,8 +78,8 @@ static void Tick_Iterate(AppState *app)
                 Sprite *obstacle_sprite = Sprite_Get(app, obstacle->sprite_id);
 
                 Col_Vertices obstacle_verts = obstacle_sprite->collision_vertices;
-                V2_VerticesOffset(obstacle_verts.arr, ArrayCount(obstacle_verts.arr), obstacle->p);
-                V2 obstacle_center = V2_VerticesAverage(obstacle_verts.arr, ArrayCount(obstacle_verts.arr));
+                Vertices_Offset(obstacle_verts.arr, ArrayCount(obstacle_verts.arr), obstacle->p);
+                V2 obstacle_center = Vertices_Average(obstacle_verts.arr, ArrayCount(obstacle_verts.arr));
 
                 float biggest_dist = -FLT_MAX;
                 V2 wall_normal = {0};

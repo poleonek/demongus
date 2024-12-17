@@ -9,12 +9,6 @@
 
 typedef struct
 {
-    V2 arr[4];
-} Col_Vertices;
-typedef Col_Vertices Col_Normals;
-
-typedef struct
-{
     SDL_Texture *tex;
     Uint32 tex_frames;
     Col_Vertices collision_vertices;

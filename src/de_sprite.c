@@ -15,6 +15,38 @@ static Sprite *Sprite_Get(AppState *app, Uint32 sprite_id)
     return app->sprite_pool + sprite_id;
 }
 
+// @todo delete these helpers?
+static void Sprite_CollisionVerticesRotate(Sprite *sprite, float rotation)
+{
+    Vertices_Rotate(sprite->collision_vertices.arr,
+                      ArrayCount(sprite->collision_vertices.arr),
+                      rotation);
+}
+static void Sprite_CollisionVerticesScale(Sprite *sprite, float scale)
+{
+    Vertices_Scale(sprite->collision_vertices.arr,
+                      ArrayCount(sprite->collision_vertices.arr),
+                      scale);
+}
+static void Sprite_CollisionVerticesOffset(Sprite *sprite, V2 offset)
+{
+    Vertices_Offset(sprite->collision_vertices.arr,
+                      ArrayCount(sprite->collision_vertices.arr),
+                      offset);
+}
+static void Sprite_CollisionVerticesMax(Sprite *sprite, V2 val)
+{
+    Vertices_Max(sprite->collision_vertices.arr,
+                   ArrayCount(sprite->collision_vertices.arr),
+                   val);
+}
+static void Sprite_CollisionVerticesMin(Sprite *sprite, V2 val)
+{
+    Vertices_Min(sprite->collision_vertices.arr,
+                   ArrayCount(sprite->collision_vertices.arr),
+                   val);
+}
+
 static void Sprite_RecalculateCollsionNormals(Sprite *sprite)
 {
     Uint64 vert_count = ArrayCount(sprite->collision_vertices.arr);

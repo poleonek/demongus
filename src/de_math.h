@@ -186,39 +186,6 @@ static V2 V2_CalculateNormal(V2 a, V2 b)
     return V2_RotateClockwise90(dir);
 }
 
-static void V2_VerticesTransform(V2 *verts, Uint64 vert_count,
-                                 float rotation, V2 offset)
-{
-    SinCosResult sincos = SinCosF(rotation);
-    ForU64(i, vert_count)
-    {
-        V2 rotated = V2_RotateSinCos(verts[i], sincos);
-        V2 moved = V2_Add(rotated, offset);
-        verts[i] = moved;
-    }
-}
-
-static void V2_VerticesOffset(V2 *verts, Uint64 vert_count, V2 offset)
-{
-    ForU64(i, vert_count)
-    {
-        verts[i] = V2_Add(verts[i], offset);
-    }
-}
-
-static V2 V2_VerticesAverage(V2 *verts, Uint64 vert_count)
-{
-    V2 sum = {0};
-    ForU64(i, vert_count)
-    {
-        sum = V2_Add(sum, verts[i]);
-    }
-
-    float inv = 1.f / (float)vert_count;
-    V2 avg = V2_Scale(sum, inv);
-    return avg;
-}
-
 
 // ---
 // Ranges

@@ -75,7 +75,7 @@ static void Game_IssueDrawCommands(AppState *app)
                 memcpy(verts, sprite->collision_vertices.arr, sizeof(verts));
             }
 
-            V2_VerticesOffset(verts, ArrayCount(verts), obj->p);
+            Vertices_Offset(verts, ArrayCount(verts), obj->p);
             Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
 
             SDL_FColor fcolor = ColorF_To_SDL_FColor(obj->sprite_color);
@@ -123,7 +123,7 @@ static void Game_IssueDrawCommands(AppState *app)
                 V2 verts[4];
                 static_assert(sizeof(verts) == sizeof(sprite->collision_vertices.arr));
                 memcpy(verts, sprite->collision_vertices.arr, sizeof(verts));
-                V2_VerticesOffset(verts, ArrayCount(verts), obj->p);
+                Vertices_Offset(verts, ArrayCount(verts), obj->p);
                 Game_VerticesCameraTransform(app, verts, camera_scale, window_transform);
 
                 ColorF color = ColorF_RGBA(1, 0, 0.8f, 0.8f);
@@ -270,13 +270,18 @@ static void Game_Init(AppState *app)
 
     Sprite *sprite_crate = Sprite_Create(app, "../res/pxart/crate.png", 1);
     {
-        V2_VerticesTransform(sprite_crate->collision_vertices.arr,
-                             ArrayCount(sprite_crate->collision_vertices.arr),
-                             0.125f, (V2){0});
+        Sprite_CollisionVerticesRotate(sprite_crate, 0.125f);
+        Sprite_CollisionVerticesScale(sprite_crate, 0.6f);
+        Sprite_CollisionVerticesOffset(sprite_crate, (V2){0, -3});
         Sprite_RecalculateCollsionNormals(sprite_crate);
     }
 
-    app->sprite_dude_id = Sprite_IdFromPointer(app, Sprite_Create(app, "../res/pxart/dude_walk.png", 5));
+    Sprite *sprite_dude = Sprite_Create(app, "../res/pxart/dude_walk.png", 5);
+    {
+        sprite_dude->collision_vertices = Vertices_FromRect((V2){0}, (V2){20, 10});
+        Sprite_CollisionVerticesOffset(sprite_dude, (V2){0, -8});
+        app->sprite_dude_id = Sprite_IdFromPointer(app, sprite_dude);
+    }
     Sprite *sprite_ref = Sprite_Create(app, "../res/pxart/reference.png", 1);
 
     // add walls
