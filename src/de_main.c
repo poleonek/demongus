@@ -201,6 +201,8 @@ static void Game_IssueDrawCommands(AppState *app)
 
 static void Game_Iterate(AppState *app)
 {
+    Test_Iterate();
+
     {
         app->frame_id += 1;
 

@@ -167,17 +167,17 @@ static void Net_IterateSend(AppState *app)
             cmd.kind = Tick_Cmd_ObjHistory;
             Net_BufMemcpy(app, &cmd, sizeof(cmd));
 
-            if (app->netobj_state_next + 1 < ArrayCount(app->netobj_states)) // copy range (next..Max)
+            if (app->netobj.writer_next_index + 1 < ArrayCount(app->netobj.states)) // copy range (next..ArrayCount)
             {
-                Uint64 start = app->netobj_state_next + 1;
-                Uint64 states_to_copy = ArrayCount(app->netobj_states) - start;
-                Net_BufMemcpy(app, app->netobj_states + start, states_to_copy*sizeof(Tick_NetworkObjState));
+                Uint64 start = app->netobj.writer_next_index + 1;
+                Uint64 states_to_copy = ArrayCount(app->netobj.states) - start;
+                Net_BufMemcpy(app, app->netobj.states + start, states_to_copy*sizeof(Tick_NetworkObjState));
             }
 
-            if (app->netobj_state_next > 0) // copy range [0..next)
+            if (app->netobj.writer_next_index > 0) // copy range [0..next)
             {
-                Uint64 states_to_copy = app->netobj_state_next - 1;
-                Net_BufMemcpy(app, app->netobj_states, states_to_copy*sizeof(Tick_NetworkObjState));
+                Uint64 states_to_copy = app->netobj.writer_next_index - 1;
+                Net_BufMemcpy(app, app->netobj.states, states_to_copy*sizeof(Tick_NetworkObjState));
             }
         }
     }
@@ -303,8 +303,34 @@ static void Net_IterateReceive(AppState *app)
                 }
                 else if (cmd.kind == Tick_Cmd_ObjHistory)
                 {
+#if 0
                     Tick_NetworkObjHistory history;
                     Net_ConsumeMsg(&msg, &history, sizeof(history));
+
+                    Uint64 msg_tick_end = cmd.tick_id;
+                    Uint64 msg_tick_start = (cmd.tick_id >= NET_MAX_TICK_HISTORY ?
+                                             NET_MAX_TICK_HISTORY - cmd.tick_id :
+                                             0);
+                    Uint64 msg_tick_count = msg_tick_end - msg_tick_start;
+
+                    if (msg_tick_end < app->netobj.server_tick_max)
+                    {
+                        // the msg we recieved now is older than the last message
+                        // from the server
+                        // let's drop the message?
+                        SDL_Log("%s: Dropping message with old tick_id: %llu, already received tick_id: %llu",
+                                Net_Label(app), msg_tick_end, app->netobj.server_tick_max);
+                        goto datagram_cleanup;
+                    }
+
+                    Uint64 server_tick_delta = app->netobj.server_tick_max - msg_tick_end;
+
+                    Uint64 new_index_max = app->netobj.index_max + server_tick_delta;
+                    Assert(new_index_max >= msg_tick_count);
+                    Uint64 copy_start = new_index_max - msg_tick_count;
+#endif
+
+
 
                     // @todo handle
                     Assert(false);

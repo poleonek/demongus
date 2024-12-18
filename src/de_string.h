@@ -5,6 +5,8 @@ typedef struct
 } S8;
 #define PrintS8(s) (int)(s).size, (s).str
 
+#define S8_CstrLit(CStrLiteral) S8_Make(CStrLiteral, sizeof(CStrLiteral)-1)
+
 typedef enum {
     S8Match_FindLast         = (1 << 0),
     S8Match_CaseInsensitive  = (1 << 1),
@@ -17,7 +19,7 @@ typedef struct {
     Uint64 found : 1;
 } S8_FindResult;
 
-static S8 S8_MakeFromCstr(const char *cstr)
+static S8 S8_MakeScanCstr(const char *cstr)
 {
     S8 result = {0};
     result.str = (Uint8 *)cstr;

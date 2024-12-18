@@ -105,8 +105,15 @@ typedef struct
     Uint64 tick_input_min;
     Uint64 tick_input_max; // one past last
 
-    Tick_NetworkObjState netobj_states[NET_MAX_TICK_HISTORY];
-    Uint64 netobj_state_next;
+    struct
+    {
+        Tick_NetworkObjState states[NET_MAX_TICK_HISTORY];
+        Uint64 writer_next_index;
+        Uint64 index_min;
+        Uint64 index_max;
+        Uint64 server_tick_min;
+        Uint64 server_tick_max;
+    } netobj;
 
     // time
     Uint64 frame_id;

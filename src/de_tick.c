@@ -204,8 +204,8 @@ static void Tick_AdvanceSimulation(AppState *app)
 
     // save networked objects state
     {
-        Tick_NetworkObjState *state = app->netobj_states + app->netobj_state_next;
-        app->netobj_state_next = (app->netobj_state_next + 1) % ArrayCount(app->netobj_states);
+        Tick_NetworkObjState *state = app->netobj.states + app->netobj.writer_next_index;
+        app->netobj.writer_next_index = (app->netobj.writer_next_index + 1) % ArrayCount(app->netobj.states);
 
         static_assert(ArrayCount(state->objs) == ArrayCount(app->network_ids));
         ForArray(i, state->objs)
