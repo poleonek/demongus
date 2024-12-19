@@ -303,13 +303,12 @@ static void Net_IterateReceive(AppState *app)
                 }
                 else if (cmd.kind == Tick_Cmd_ObjHistory)
                 {
-#if 0
                     Tick_NetworkObjHistory history;
                     Net_ConsumeMsg(&msg, &history, sizeof(history));
 
                     Uint64 msg_tick_end = cmd.tick_id;
                     Uint64 msg_tick_start = (cmd.tick_id >= NET_MAX_TICK_HISTORY ?
-                                             NET_MAX_TICK_HISTORY - cmd.tick_id :
+                                             cmd.tick_id - NET_MAX_TICK_HISTORY:
                                              0);
                     Uint64 msg_tick_count = msg_tick_end - msg_tick_start;
 
@@ -323,17 +322,26 @@ static void Net_IterateReceive(AppState *app)
                         goto datagram_cleanup;
                     }
 
-                    Uint64 server_tick_delta = app->netobj.server_tick_max - msg_tick_end;
+                    Uint64 server_tick_delta = msg_tick_end - app->netobj.server_tick_max;
 
                     Uint64 new_index_max = app->netobj.index_max + server_tick_delta;
                     Assert(new_index_max >= msg_tick_count);
-                    Uint64 copy_start = new_index_max - msg_tick_count;
-#endif
 
+                    Uint64 new_index_min = new_index_max - msg_tick_count;
 
+                    Uint64 fill_index = new_index_min;
+                    CircleBufferFill(sizeof(Tick_NetworkObjState),
+                                     app->netobj.states, ArrayCount(app->netobj.states),
+                                     &fill_index,
+                                     history.states, msg_tick_count);
+                    Assert(fill_index == new_index_max);
+                    //Assert(false);
 
-                    // @todo handle
-                    Assert(false);
+                    // Store state
+                    app->netobj.index_min = new_index_min;
+                    app->netobj.index_max = new_index_max;
+                    app->netobj.server_tick_min = msg_tick_start;
+                    app->netobj.server_tick_max = msg_tick_end;
                 }
                 else
                 {

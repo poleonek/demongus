@@ -225,6 +225,20 @@ static void Tick_Iterate(AppState *app)
     }
     else
     {
-        //Tick_PlaybackSimulation(app); // @todo
+        //Tick_PlaybackSimulation(app);
+
+        if (app->netobj.index_min < app->netobj.index_max)
+        {
+            Uint64 index = app->netobj.index_min % ArrayCount(app->netobj.states);
+            Tick_NetworkObjState *state = app->netobj.states + index;
+            app->netobj.index_min += 1;
+            app->netobj.server_tick_min += 1; // @todo this doesn't need to be tracked!
+
+            ForArray(i, app->network_ids)
+            {
+                Assert(i < ArrayCount(state->objs));
+                *Object_Network(app, i) = state->objs[i];
+            }
+        }
     }
 }

@@ -109,6 +109,7 @@ typedef struct
     {
         Tick_NetworkObjState states[NET_MAX_TICK_HISTORY];
         Uint64 writer_next_index;
+        // @todo simplify this whole state
         Uint64 index_min;
         Uint64 index_max;
         Uint64 server_tick_min;

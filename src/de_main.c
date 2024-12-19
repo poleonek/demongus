@@ -319,10 +319,12 @@ static void Game_Init(AppState *app)
         }
     }
 
-
     // add network objs
-    if (app->net.is_server)
+    ForArray(i, app->network_ids)
     {
-        app->network_ids[0] = Object_IdFromPointer(app, Object_CreatePlayer(app));
+        if (app->net.is_server && i == 0)
+            app->network_ids[i] = Object_IdFromPointer(app, Object_CreatePlayer(app));
+        else
+            app->network_ids[i] = Object_IdFromPointer(app, Object_Create(app, 0, 0));
     }
 }
