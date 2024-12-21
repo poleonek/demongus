@@ -1,14 +1,15 @@
 // ---
 // Constants
 // ---
-#define TICK_RATE 16
+#define TICK_RATE 32
 #define TIME_STEP (1.f / (float)TICK_RATE)
 
 #define NET_DEFAULT_SEVER_PORT 21037
 #define NET_MAGIC_VALUE 0xfda0'dead'beef'1234llu
-#define NET_MAX_TICK_HISTORY (TICK_RATE * 2)
+#define NET_MAX_TICK_HISTORY (TICK_RATE)
 #define NET_MAX_NETWORK_OBJECTS 16
 #define NET_OLD_PROTOCOL 0
+#define NET_SIMULATE_PACKETLOSS 0 // doesn't seem to work on localhost
 
 typedef struct
 {
@@ -108,12 +109,13 @@ typedef struct
     struct
     {
         Tick_NetworkObjState states[NET_MAX_TICK_HISTORY];
-        Uint64 writer_next_index;
-        // @todo simplify this whole state
-        Uint64 index_min;
-        Uint64 index_max;
-        Uint64 server_tick_min;
-        Uint64 server_tick_max;
+        Uint64 next_tick;
+        Uint64 latest_server_at_tick;
+
+        // stores last 32 tick bumps (how much newer the server's tick was compared to our previous latest server tick) to adjust network delay
+        Uint64 tick_bump_history[32]; // size of this should have inv corelation to our network poll rate
+        Uint64 tick_bump_history_next;
+        Uint64 tick_bump_correction;
     } netobj;
 
     // time

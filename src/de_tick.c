@@ -204,8 +204,9 @@ static void Tick_AdvanceSimulation(AppState *app)
 
     // save networked objects state
     {
-        Tick_NetworkObjState *state = app->netobj.states + app->netobj.writer_next_index;
-        app->netobj.writer_next_index = (app->netobj.writer_next_index + 1) % ArrayCount(app->netobj.states);
+        Uint64 state_index = app->netobj.next_tick % ArrayCount(app->netobj.states);
+        app->netobj.next_tick += 1;
+        Tick_NetworkObjState *state = app->netobj.states + state_index;
 
         static_assert(ArrayCount(state->objs) == ArrayCount(app->network_ids));
         ForArray(i, state->objs)
@@ -226,19 +227,26 @@ static void Tick_Iterate(AppState *app)
     else
     {
         //Tick_PlaybackSimulation(app);
-
-        if (app->netobj.index_min < app->netobj.index_max)
+        // playback game at double speed when in the process of correcting the delay
+        ForU64(tick_bump_correction_iteration, 2)
         {
-            Uint64 index = app->netobj.index_min % ArrayCount(app->netobj.states);
-            Tick_NetworkObjState *state = app->netobj.states + index;
-            app->netobj.index_min += 1;
-            app->netobj.server_tick_min += 1; // @todo this doesn't need to be tracked!
-
-            ForArray(i, app->network_ids)
+            if (app->netobj.next_tick <= app->netobj.latest_server_at_tick)
             {
-                Assert(i < ArrayCount(state->objs));
-                *Object_Network(app, i) = state->objs[i];
+                Uint64 state_index = app->netobj.next_tick % ArrayCount(app->netobj.states);
+                app->netobj.next_tick += 1;
+                Tick_NetworkObjState *state = app->netobj.states + state_index;
+
+                ForArray(i, app->network_ids)
+                {
+                    Assert(i < ArrayCount(state->objs));
+                    *Object_Network(app, i) = state->objs[i];
+                }
             }
+
+            if (!app->netobj.tick_bump_correction)
+                break;
+
+            app->netobj.tick_bump_correction -= 1;
         }
     }
 }

@@ -102,6 +102,6 @@ set release=
 
 :: --- Warn On No Builds ------------------------------------------------------
 if "%didbuild%"=="" (
-  echo [WARNING] no valid build target specified; must use build target names as arguments to this script, like `build raddbg` or `build rdi_from_pdb`.
+  echo [WARNING] no valid build target specified; must use build target names as arguments to this script, like `build game`.
   exit /b 1
 )

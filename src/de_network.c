@@ -1,8 +1,8 @@
-//
-// disable log spam
-//
-//#define NET_VERBOSE_LOG(...)
-#define NET_VERBOSE_LOG(...) SDL_Log(__VA_ARGS__)
+// ---
+// More/less logging switch
+// ---
+#define NET_VERBOSE_LOG(...)
+//#define NET_VERBOSE_LOG(...) SDL_Log(__VA_ARGS__)
 
 typedef struct
 {
@@ -130,7 +130,7 @@ static void Net_IterateSend(AppState *app)
     {
         // hacky temporary network activity rate-limitting
         static Uint64 last_timestamp = 0;
-        if (app->frame_time < last_timestamp + 1000)
+        if (app->frame_time < last_timestamp + 0)
             return;
         last_timestamp = app->frame_time;
     }
@@ -167,16 +167,18 @@ static void Net_IterateSend(AppState *app)
             cmd.kind = Tick_Cmd_ObjHistory;
             Net_BufMemcpy(app, &cmd, sizeof(cmd));
 
-            if (app->netobj.writer_next_index + 1 < ArrayCount(app->netobj.states)) // copy range (next..ArrayCount)
+            Uint64 state_index = app->netobj.next_tick % ArrayCount(app->netobj.states);
+
+            // copy range (next..ArrayCount)
             {
-                Uint64 start = app->netobj.writer_next_index + 1;
+                Uint64 start = state_index;
                 Uint64 states_to_copy = ArrayCount(app->netobj.states) - start;
                 Net_BufMemcpy(app, app->netobj.states + start, states_to_copy*sizeof(Tick_NetworkObjState));
             }
 
-            if (app->netobj.writer_next_index > 0) // copy range [0..next)
+            if (state_index > 0) // copy range [0..next)
             {
-                Uint64 states_to_copy = app->netobj.writer_next_index - 1;
+                Uint64 states_to_copy = state_index;
                 Net_BufMemcpy(app, app->netobj.states, states_to_copy*sizeof(Tick_NetworkObjState));
             }
         }
@@ -203,7 +205,7 @@ static void Net_IterateReceive(AppState *app)
     {
         // hacky temporary network activity rate-limitting
         static Uint64 last_timestamp = 0;
-        if (app->frame_time < last_timestamp + 1000)
+        if (app->frame_time < last_timestamp + 0)
             return;
         last_timestamp = app->frame_time;
     }
@@ -306,42 +308,65 @@ static void Net_IterateReceive(AppState *app)
                     Tick_NetworkObjHistory history;
                     Net_ConsumeMsg(&msg, &history, sizeof(history));
 
-                    Uint64 msg_tick_end = cmd.tick_id;
-                    Uint64 msg_tick_start = (cmd.tick_id >= NET_MAX_TICK_HISTORY ?
-                                             cmd.tick_id - NET_MAX_TICK_HISTORY:
-                                             0);
-                    Uint64 msg_tick_count = msg_tick_end - msg_tick_start;
-
-                    if (msg_tick_end < app->netobj.server_tick_max)
+                    if (cmd.tick_id < app->netobj.latest_server_at_tick)
                     {
                         // the msg we recieved now is older than the last message
                         // from the server
                         // let's drop the message?
                         SDL_Log("%s: Dropping message with old tick_id: %llu, already received tick_id: %llu",
-                                Net_Label(app), msg_tick_end, app->netobj.server_tick_max);
+                                Net_Label(app), cmd.tick_id, app->netobj.latest_server_at_tick);
                         goto datagram_cleanup;
                     }
 
-                    Uint64 server_tick_delta = msg_tick_end - app->netobj.server_tick_max;
+                    Uint64 server_tick_bump = cmd.tick_id - app->netobj.latest_server_at_tick;
+                    app->netobj.latest_server_at_tick = cmd.tick_id;
 
-                    Uint64 new_index_max = app->netobj.index_max + server_tick_delta;
-                    Assert(new_index_max >= msg_tick_count);
+                    // adjusting tick playback delay
+                    {
+                        Uint64 bump_index = app->netobj.tick_bump_history_next %
+                            ArrayCount(app->netobj.tick_bump_history);
+                        app->netobj.tick_bump_history_next += 1;
 
-                    Uint64 new_index_min = new_index_max - msg_tick_count;
+                        app->netobj.tick_bump_history[bump_index] = server_tick_bump;
 
-                    Uint64 fill_index = new_index_min;
+                        Uint64 biggest_tick_bump = 0;
+                        ForArray(i, app->netobj.tick_bump_history)
+                        {
+                            biggest_tick_bump = Max(app->netobj.tick_bump_history[i],
+                                                    biggest_tick_bump);
+                        }
+
+                        Uint64 target_tick_delta = biggest_tick_bump + biggest_tick_bump/8 + 1;
+                        Uint64 current_tick_delta = app->netobj.latest_server_at_tick -
+                            app->netobj.next_tick;
+
+                        app->netobj.tick_bump_correction = 0;
+                        if (current_tick_delta > target_tick_delta)
+                            app->netobj.tick_bump_correction = current_tick_delta - target_tick_delta;
+
+                        if (app->netobj.tick_bump_correction)
+                        {
+                            NET_VERBOSE_LOG("%s DELAY_ADJUSTMENT: biggest: %llu; target: %llu; "
+                                            "current: %llu, correction: %llu",
+                                            Net_Label(app), biggest_tick_bump, target_tick_delta,
+                                            current_tick_delta, app->netobj.tick_bump_correction);
+                        }
+                    }
+
+                    // truncate next_tick; server state is too ahead
+                    if (app->netobj.next_tick + ArrayCount(app->netobj.states) <=
+                        app->netobj.latest_server_at_tick)
+                    {
+                        app->netobj.next_tick =
+                            app->netobj.latest_server_at_tick - ArrayCount(app->netobj.states) + 1;
+                    }
+
+
+                    Uint64 fill_index = app->netobj.latest_server_at_tick + 1;
                     CircleBufferFill(sizeof(Tick_NetworkObjState),
                                      app->netobj.states, ArrayCount(app->netobj.states),
                                      &fill_index,
-                                     history.states, msg_tick_count);
-                    Assert(fill_index == new_index_max);
-                    //Assert(false);
-
-                    // Store state
-                    app->netobj.index_min = new_index_min;
-                    app->netobj.index_max = new_index_max;
-                    app->netobj.server_tick_min = msg_tick_start;
-                    app->netobj.server_tick_max = msg_tick_end;
+                                     history.states, ArrayCount(history.states));
                 }
                 else
                 {
@@ -400,6 +425,12 @@ static void Net_Init(AppState *app)
     {
         SDL_Log("%s: Created socket",
                 Net_Label(app));
+
+#if NET_SIMULATE_PACKETLOSS
+        SDLNet_SimulateDatagramPacketLoss(app->net.socket, NET_SIMULATE_PACKETLOSS);
+        SDL_Log("%s: Simulating packetloss: %d",
+                Net_Label(app), NET_SIMULATE_PACKETLOSS);
+#endif
     }
 }
 
