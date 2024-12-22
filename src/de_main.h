@@ -8,6 +8,7 @@
 #define NET_MAGIC_VALUE 0xfda0'dead'beef'1234llu
 #define NET_MAX_TICK_HISTORY (TICK_RATE)
 #define NET_MAX_NETWORK_OBJECTS 16
+#define NET_MAX_MSG_SIZE 32768
 #define NET_OLD_PROTOCOL 0
 #define NET_SIMULATE_PACKETLOSS 0 // doesn't seem to work on localhost
 
@@ -151,13 +152,16 @@ typedef struct
         bool is_server;
         SDLNet_DatagramSocket *socket;
 
-        Uint8 buf[1024 * 1024 * 1]; // 1 MB scratch buffer for network payload construction
-        Uint32 buf_used;
-        bool buf_err; // true on overflows
-
         Net_User users[16];
         Uint32 user_count;
         Net_User server_user;
+
+        // msg payload
+        bool send_err; // set on internal buffer overflow errors etc
+        Uint8 payload_buf[1024 * 1024 * 1]; // 1 MB scratch buffer for network payload construction
+        Uint32 payload_buf_used;
+        Uint8 packet_buf[1024 * 1024 * 1]; // 1 MB scratch buffer for network packet construction
+        S8 packet_slices[16]; // support 16 parts max
     } net;
 
     // debug

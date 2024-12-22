@@ -15,37 +15,43 @@ static const char *Net_Label(AppState *app)
     return app->net.is_server ? "SERVER" : "CLIENT";
 }
 
-static Uint8 *Net_BufAlloc(AppState *app, Uint32 size)
+static Uint8 *Net_PayloadAlloc(AppState *app, Uint32 size)
 {
-    Uint8 *result = app->net.buf + app->net.buf_used;
+    Uint8 *result = app->net.payload_buf + app->net.payload_buf_used;
     {
         // return ptr to start of the buffer
         // on overflow
-        Uint8 *end = (app->net.buf + sizeof(app->net.buf));
+        Uint8 *end = (app->net.payload_buf + sizeof(app->net.payload_buf));
         if (end < (result + size))
         {
             Assert(false);
-            result = app->net.buf;
-            app->net.buf_err = true;
+            result = app->net.payload_buf;
+            app->net.send_err = true;
         }
     }
-    app->net.buf_used += size;
+    app->net.payload_buf_used += size;
     return result;
 }
 
-static Uint8 *Net_BufMemcpy(AppState *app, void *data, Uint32 size)
+static Uint8 *Net_PayloadMemcpy(AppState *app, void *data, Uint32 size)
 {
-    Uint8 *result = Net_BufAlloc(app, size);
+    Uint8 *result = Net_PayloadAlloc(app, size);
     memcpy(result, data, size);
     return result;
 }
 
-static void Net_BufSend(AppState *app, Net_User destination)
+static void Net_MsgBufCreatePackets(AppState *app)
+{
+    (void)app;
+    // @todo
+}
+
+static void Net_PayloadSend(AppState *app, Net_User destination)
 {
     bool send_res = SDLNet_SendDatagram(app->net.socket,
                                         destination.address,
                                         destination.port,
-                                        app->net.buf, app->net.buf_used);
+                                        app->net.payload_buf, app->net.payload_buf_used);
     (void)send_res;
 
     NET_VERBOSE_LOG("%s: Sending buffer of size %d to %s:%d; %s",
@@ -55,21 +61,21 @@ static void Net_BufSend(AppState *app, Net_User destination)
                     send_res ? "success" : "fail");
 }
 
-static void Net_BufSendFlush(AppState *app)
+static void Net_PayloadSendFlush(AppState *app)
 {
     if (app->net.is_server)
     {
         ForU32(i, app->net.user_count)
         {
-            Net_BufSend(app, app->net.users[i]);
+            Net_PayloadSend(app, app->net.users[i]);
         }
     }
     else
     {
-        Net_BufSend(app, app->net.server_user);
+        Net_PayloadSend(app, app->net.server_user);
     }
 
-    app->net.buf_used = 0;
+    app->net.payload_buf_used = 0;
 }
 
 static bool Net_ConsumeMsg(S8 *msg, void *dest, Uint64 size)
@@ -137,7 +143,7 @@ static void Net_IterateSend(AppState *app)
 
     Net_BufHeader header = {};
     header.magic_value = NET_MAGIC_VALUE;
-    Uint8 *buf_header = Net_BufAlloc(app, sizeof(Net_BufHeader));
+    Uint8 *buf_header = Net_PayloadAlloc(app, sizeof(Net_BufHeader));
 
     if (is_server)
     {
@@ -152,12 +158,12 @@ static void Net_IterateSend(AppState *app)
                 Tick_Command cmd = {};
                 cmd.tick_id = app->tick_id;
                 cmd.kind = Tick_Cmd_NetworkObj;
-                Net_BufMemcpy(app, &cmd, sizeof(cmd));
+                Net_PayloadMemcpy(app, &cmd, sizeof(cmd));
 
-                Net_BufMemcpy(app, obj, sizeof(*obj));
+                Net_PayloadMemcpy(app, obj, sizeof(*obj));
 
                 Uint32 i_32 = i;
-                Net_BufMemcpy(app, &i_32, sizeof(i_32));
+                Net_PayloadMemcpy(app, &i_32, sizeof(i_32));
             }
         }
         else
@@ -165,7 +171,7 @@ static void Net_IterateSend(AppState *app)
             Tick_Command cmd = {};
             cmd.tick_id = app->tick_id;
             cmd.kind = Tick_Cmd_ObjHistory;
-            Net_BufMemcpy(app, &cmd, sizeof(cmd));
+            Net_PayloadMemcpy(app, &cmd, sizeof(cmd));
 
             Uint64 state_index = app->netobj.next_tick % ArrayCount(app->netobj.states);
 
@@ -173,13 +179,13 @@ static void Net_IterateSend(AppState *app)
             {
                 Uint64 start = state_index;
                 Uint64 states_to_copy = ArrayCount(app->netobj.states) - start;
-                Net_BufMemcpy(app, app->netobj.states + start, states_to_copy*sizeof(Tick_NetworkObjState));
+                Net_PayloadMemcpy(app, app->netobj.states + start, states_to_copy*sizeof(Tick_NetworkObjState));
             }
 
             if (state_index > 0) // copy range [0..next)
             {
                 Uint64 states_to_copy = state_index;
-                Net_BufMemcpy(app, app->netobj.states, states_to_copy*sizeof(Tick_NetworkObjState));
+                Net_PayloadMemcpy(app, app->netobj.states, states_to_copy*sizeof(Tick_NetworkObjState));
             }
         }
     }
@@ -189,11 +195,11 @@ static void Net_IterateSend(AppState *app)
         // empty msg
     }
 
-    S8 msg = S8_Make(app->net.buf, app->net.buf_used);
+    S8 msg = S8_Make(app->net.payload_buf, app->net.payload_buf_used);
     msg = S8_Skip(msg, sizeof(header));
     header.hash = S8_Hash(0, msg);
     memcpy(buf_header, &header, sizeof(header));
-    Net_BufSendFlush(app);
+    Net_PayloadSendFlush(app);
 }
 
 static void Net_IterateReceive(AppState *app)
